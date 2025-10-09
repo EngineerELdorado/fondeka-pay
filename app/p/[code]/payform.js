@@ -131,7 +131,7 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
         return null;
     };
 
-    /* ---------- Submit ---------- */
+    /* ---------- Submit (POST /public/payment-requests/pay) ---------- */
     const onPay = async () => {
         const v = validate();
         if (v) { setErr(v); return; }
@@ -142,12 +142,12 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                 checkoutToken: data.checkoutToken || '',
                 paymentMethodId: methodId,
                 networkId: isCrypto ? networkId : undefined,
-                amount: isDonation ? Number(amount) : data.amount, // server ignores for fixed types
+                amount: isDonation ? Number(amount) : data.amount,
                 payerReference: isMobile ? payerReference : undefined,
                 idempotencyKey: idem(),
             };
 
-            const res = await http(`${API_BASE}/public/checkout/attempts`, {
+            const res = await http(`${API_BASE}/public/payment-requests/pay`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
             });
 
@@ -165,24 +165,44 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
 
     /* ---------- UI helpers ---------- */
 
-    const Accordion = ({ title, typeKey, children }) => (
-        <section className="card card--plain" style={{ background: '#fff' }}>
-            <button
-                type="button"
-                onClick={() => setExpanded(prev => ({ ...prev, [typeKey]: !prev[typeKey] }))}
-                style={accordionHeaderStyle}
-                aria-expanded={!!expanded[typeKey]}
-            >
-                <span className="label" style={{ fontSize: 13 }}>{title}</span>
-                <span style={{ transform: expanded[typeKey] ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' }}>⌄</span>
-            </button>
-            {expanded[typeKey] && (
-                <div style={{ paddingTop: 8 }}>
-                    {children}
-                </div>
-            )}
-        </section>
-    );
+    const Accordion = ({ title, typeKey, children }) => {
+        const open = !!expanded[typeKey];
+        return (
+            <section className="card card--plain" style={{ background: '#fff' }}>
+                <button
+                    type="button"
+                    onClick={() => setExpanded(prev => ({ ...prev, [typeKey]: !prev[typeKey] }))}
+                    style={accordionHeaderStyle(open)}
+                    aria-expanded={open}
+                >
+                    <span className="label" style={{ fontSize: 13 }}>{title}</span>
+
+                    {/* Bold chevron in a strong icon button */}
+                    <span
+                        style={{
+                            width: 28,
+                            height: 28,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderRadius: 8,
+                            background: open ? 'var(--brand-primary-soft)' : '#EEF2F7',
+                            border: `1px solid ${open ? 'var(--brand-primary)' : 'var(--brand-border)'}`,
+                            transition: 'transform .18s ease, background .18s',
+                            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+                        }}
+                    >
+            <ChevronDown size={18} color={open ? 'var(--brand-primary)' : '#475569'} />
+          </span>
+                </button>
+                {open && (
+                    <div style={{ paddingTop: 8 }}>
+                        {children}
+                    </div>
+                )}
+            </section>
+        );
+    };
 
     const SquareGrid = ({ children }) => (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
@@ -190,8 +210,8 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
         </div>
     );
 
-    // Square tile; logoSize adjustable per group (MM smaller now to prevent overflow)
-    const SquareTile = ({ active, onClick, logoUrl, name, logoSize = 44 }) => (
+    // Square tile; compact logos to avoid overflow (40px)
+    const SquareTile = ({ active, onClick, logoUrl, name, logoSize = 40 }) => (
         <button
             onClick={onClick}
             className="tile"
@@ -279,8 +299,8 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                         />
                         <span style={{ fontSize: 14, color: 'var(--brand-muted)' }}>{currency}</span>
                     </div>
-                    {(data.minAmount!=null || data.maxAmount!=null) && (
-                        <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--brand-muted)' }}>
+                    {(data.minAmount!=null && data.minAmount >0 || data.maxAmount!=null && data.maxAmount>0) && (
+                        <p className="p-muted" style={{ marginTop: 6, fontSize: 12 }}>
                             Limites: {data.minAmount ?? '—'} – {data.maxAmount ?? '—'} {currency}
                         </p>
                     )}
@@ -302,11 +322,7 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                 const list = grouped[t];
                 if (!list?.length) return null;
 
-                // Use smaller logos for both MM & Crypto to avoid overflow; other rails default 44
-                const logoSize =
-                    t === 'CRYPTO'      ? 40 :
-                        t === 'MOBILE_MONEY'? 40 :
-                            44;
+                const logoSize = 40; // compact logo to prevent overflow
 
                 return (
                     <Accordion key={t} title={labelForType(t)} typeKey={t}>
@@ -342,7 +358,7 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                         {t === 'CRYPTO' && isCrypto && (
                             <div style={{ marginTop: 10 }}>
                                 <label className="label" style={{ marginBottom: 8 }}>Réseau</label>
-                                <SquareGrid>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
                                     {networks.map(net => (
                                         <SquareTile
                                             key={net.id}
@@ -353,7 +369,7 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                                             logoSize={0}     // hide logo box
                                         />
                                     ))}
-                                </SquareGrid>
+                                </div>
                             </div>
                         )}
                     </Accordion>
@@ -376,18 +392,22 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
     );
 }
 
-/* ------- helpers ------- */
+/* ------- helpers & icons ------- */
 
-const accordionHeaderStyle = {
+const accordionHeaderStyle = (open) => ({
     width: '100%',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '8px 10px',
+    padding: '10px 12px',
     border: '1px solid var(--brand-border)',
     borderRadius: 12,
     background: 'var(--brand-primary-soft-2)',
-};
+    cursor: 'pointer',
+    transition: 'background .18s',
+    outline: 'none',
+    ...(open ? { background: 'var(--brand-primary-soft)' } : null),
+});
 
 function labelForType(t) {
     switch (t) {
@@ -408,4 +428,19 @@ function mapIsoToCallingCode(iso2) {
         GA: '241', AO: '244',
     };
     return map[(iso2 || '').toUpperCase()];
+}
+
+function ChevronDown({ size = 18, color = '#475569' }) {
+    return (
+        <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
+            <path
+                d="M6 9l6 6 6-6"
+                fill="none"
+                stroke={color}
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
 }

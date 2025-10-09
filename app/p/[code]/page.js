@@ -1,8 +1,8 @@
 // app/p/[code]/page.js
 import { API_BASE } from '../../../lib/api';
 import PayForm from './payform';
-import LightboxClient from './lightbox-client'; // client component for media clicks/lightbox
-import ReadMore from './readmore';             // client component for "Lire plus"
+import LightboxClient from './lightbox-client';
+import ReadMore from './readmore';
 import { notFound } from 'next/navigation';
 import { cookies, headers } from 'next/headers';
 
@@ -24,6 +24,7 @@ function normalizeData(d) {
     return {
         title: d.title ?? null,
         description: d.description ?? null,
+        creator: d.creator ?? null,                 // <-- include creator
         type: d.type ?? 'QUICK_CHARGE',
         currency: d.currency ?? 'USD',
         amount: toNum(d.amount),
@@ -57,10 +58,10 @@ const getYouTubeId = (url) => {
 export default async function Page({ params }) {
     const raw = await fetchPublicLink(params.code);
 
-    // 404 → Next.js not-found page
+    // 404
     if (raw === null) notFound();
 
-    // Soft error UI (no client handlers in server component)
+    // Soft error (no client handlers in server component)
     if (raw?.__error) {
         const retryHref = `/p/${encodeURIComponent(params.code)}`;
         return (
@@ -70,7 +71,6 @@ export default async function Page({ params }) {
                         <div className="brand-logo" />
                         <div className="brand-name">Fondeka</div>
                     </div>
-
                     <section className="card card--plain" style={{ borderColor: '#FECACA', background: '#FEF2F2' }}>
                         <h1 className="h1" style={{ fontSize: 18, marginBottom: 6 }}>Oups…</h1>
                         <p className="p-muted" style={{ color: '#991B1B' }}>{raw.__error || 'Une erreur est survenue.'}</p>
@@ -89,7 +89,7 @@ export default async function Page({ params }) {
     const isDonation = data.type === 'DONATION';
     const isInvoice  = data.type === 'INVOICE';
 
-    /* Country detection (from CDN headers via middleware cookie; fallback to headers; then ‘CD’) */
+    /* Country detection (cookie from middleware; headers fallback; default CD) */
     const ck = cookies();
     let countryIso = ck.get('country_iso')?.value?.toUpperCase();
     if (!countryIso) {
@@ -110,12 +110,17 @@ export default async function Page({ params }) {
     const items = data.items;
     const sumItems = items.reduce((s, it) => s + Number(it.lineTotal || 0), 0);
 
+    // Helper: small, single-line “creator” label with truncation
+    const creatorDisplay = (data.creator || '').trim();
+
     return (
         <main className="page">
             <div className="wrap">
                 <div className="brand-header">
                     <div className="brand-logo" />
-                    <div className="brand-name">Fondeka</div>
+                    <div className="brand-name">
+                        {creatorDisplay || 'Fondeka'}
+                    </div>
                 </div>
 
                 {/* Header (keep donation header concise; story shown later after media) */}
@@ -126,7 +131,7 @@ export default async function Page({ params }) {
                     )}
                 </header>
 
-                {/* Donation: media-first (no event handlers here; clicks handled in client component) */}
+                {/* Donation: media-first */}
                 {isDonation && (
                     <LightboxClient
                         ytId={ytId}
