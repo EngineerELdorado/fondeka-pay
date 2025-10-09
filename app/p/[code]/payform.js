@@ -98,7 +98,6 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
     }, [isCrypto, methodId]);
 
     /* ---------- Accordion state ---------- */
-    // Auto-expand the group that contains the selected method
     const selectedGroup = selectedMethod?.type || null;
     const [expanded, setExpanded] = useState(() => {
         const init = {};
@@ -143,7 +142,7 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                 checkoutToken: data.checkoutToken || '',
                 paymentMethodId: methodId,
                 networkId: isCrypto ? networkId : undefined,
-                amount: isDonation ? Number(amount) : data.amount,
+                amount: isDonation ? Number(amount) : data.amount, // server ignores for fixed types
                 payerReference: isMobile ? payerReference : undefined,
                 idempotencyKey: idem(),
             };
@@ -191,8 +190,8 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
         </div>
     );
 
-    // Logos bigger for Mobile Money (56), smaller for Crypto (42) to avoid overflow
-    const SquareTile = ({ active, onClick, logoUrl, name, logoSize = 52 }) => (
+    // Square tile; logoSize adjustable per group (MM smaller now to prevent overflow)
+    const SquareTile = ({ active, onClick, logoUrl, name, logoSize = 44 }) => (
         <button
             onClick={onClick}
             className="tile"
@@ -207,7 +206,7 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 10,
+                gap: 8,
             }}
         >
             {logoUrl ? (
@@ -220,8 +219,8 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
             ) : null}
             <span
                 style={{
-                    fontSize: 12,
-                    lineHeight: '16px',
+                    fontSize: 11,
+                    lineHeight: '14px',
                     textAlign: 'center',
                     color: '#0f172a',
                     fontWeight: 600,
@@ -295,19 +294,25 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                 </section>
             )}
 
+            {/* Caption above methods */}
+            <div className="label" style={{ marginTop: 2 }}>How do you want to pay?</div>
+
             {/* Accordions per group */}
             {GROUP_ORDER.map((t) => {
                 const list = grouped[t];
                 if (!list?.length) return null;
 
-                // Logo sizes tuned by type for visual balance
-                const logoSize = t === 'CRYPTO' ? 42 : 56;
+                // Use smaller logos for both MM & Crypto to avoid overflow; other rails default 44
+                const logoSize =
+                    t === 'CRYPTO'      ? 40 :
+                        t === 'MOBILE_MONEY'? 40 :
+                            44;
 
                 return (
                     <Accordion key={t} title={labelForType(t)} typeKey={t}>
                         {renderGroupTiles(list, logoSize)}
 
-                        {/* Mobile phone input sits directly under Mobile Money tiles */}
+                        {/* Mobile phone input directly under MM */}
                         {t === 'MOBILE_MONEY' && isMobile && (
                             <div style={{ marginTop: 10 }}>
                                 <label className="label" style={{ marginBottom: 8 }}>Téléphone Mobile Money</label>
@@ -333,7 +338,7 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                             </div>
                         )}
 
-                        {/* Crypto networks sit directly under Crypto tiles */}
+                        {/* Crypto networks directly under Crypto */}
                         {t === 'CRYPTO' && isCrypto && (
                             <div style={{ marginTop: 10 }}>
                                 <label className="label" style={{ marginBottom: 8 }}>Réseau</label>
@@ -343,9 +348,9 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                                             key={net.id}
                                             active={networkId === net.id}
                                             onClick={() => setNetworkId(net.id)}
-                                            logoUrl={null}   // networks have no logos; label only
+                                            logoUrl={null}   // label only
                                             name={net.displayName || net.name}
-                                            logoSize={0}     // hide the placeholder
+                                            logoSize={0}     // hide logo box
                                         />
                                     ))}
                                 </SquareGrid>
