@@ -17,11 +17,12 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
         isDonation ? (safePresets?.[1] ?? data.minAmount ?? 0) : (data.amount ?? 0)
     );
 
-    /* ---------- Country (ISO) for rails & phone formatting ---------- */
-    const [countryCode, setCountryCode] = useState((detectedCountry || 'CD').toUpperCase());
+    /* ---------- Country / phone ---------- */
+    const [countryCode] = useState((detectedCountry || 'CD').toUpperCase());
     const callingCode = useMemo(() => mapIsoToCallingCode(countryCode) || '243', [countryCode]);
+    const [phone, setPhone] = useState('');
 
-    /* ---------- Methods & selection ---------- */
+    /* ---------- Methods & groups ---------- */
     const [methods, setMethods] = useState([]);
     const [grouped, setGrouped] = useState({});
     const [methodId, setMethodId] = useState(null);
@@ -33,8 +34,7 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
     const [networks, setNetworks] = useState([]);
     const [networkId, setNetworkId] = useState(null);
 
-    /* ---------- Mobile Money phone ---------- */
-    const [phone, setPhone] = useState('');
+    /* ---------- Payer reference (mobile) ---------- */
     const payerReference = useMemo(() => {
         if (!isMobile) return undefined;
         const digits = String(phone || '').replace(/\D+/g, '');
@@ -47,12 +47,12 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
     const [err,  setErr]  = useState(null);
     const [status, setStatus] = useState('idle');
 
-    /* ---------- Fetch methods by country ---------- */
+    /* ---------- Fetch methods ---------- */
     useEffect(() => {
         (async () => {
             try {
                 const res = await fetch(
-                    `${API_BASE}/public/payment-requests/payment-methods?type=COLLECTION&countryCode=${encodeURIComponent(countryCode || 'CD')}`,
+                    `${API_BASE}/public/payment-requests/payment-methods?type=COLLECTION&countryCode=${encodeURIComponent(countryCode)}`,
                     { cache: 'no-store' }
                 );
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -60,7 +60,6 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                 const arr = Array.isArray(list) ? list : [];
                 setMethods(arr);
 
-                // group & order
                 const g = arr.reduce((acc, m) => {
                     const t = m.type || 'OTHER';
                     (acc[t] ||= []).push(m);
@@ -79,7 +78,7 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
         })();
     }, [countryCode]);
 
-    /* ---------- Fetch networks when selecting crypto ---------- */
+    /* ---------- Fetch networks on crypto selection ---------- */
     useEffect(() => {
         if (!isCrypto || !methodId) {
             setNetworks([]); setNetworkId(null);
@@ -97,6 +96,22 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
             }
         })();
     }, [isCrypto, methodId]);
+
+    /* ---------- Accordion state ---------- */
+    // Auto-expand the group that contains the selected method
+    const selectedGroup = selectedMethod?.type || null;
+    const [expanded, setExpanded] = useState(() => {
+        const init = {};
+        GROUP_ORDER.forEach(t => init[t] = (t === selectedGroup));
+        return init;
+    });
+    useEffect(() => {
+        setExpanded(prev => {
+            const next = { ...prev };
+            GROUP_ORDER.forEach(t => next[t] = (t === selectedGroup));
+            return next;
+        });
+    }, [selectedGroup]);
 
     /* ---------- Validation ---------- */
     const money = (n, curr) =>
@@ -128,7 +143,7 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                 checkoutToken: data.checkoutToken || '',
                 paymentMethodId: methodId,
                 networkId: isCrypto ? networkId : undefined,
-                amount: isDonation ? Number(amount) : data.amount, // server ignores for fixed types
+                amount: isDonation ? Number(amount) : data.amount,
                 payerReference: isMobile ? payerReference : undefined,
                 idempotencyKey: idem(),
             };
@@ -149,21 +164,34 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
         } finally { setBusy(false); }
     };
 
-    /* ---------- UI helpers (square tiles) ---------- */
+    /* ---------- UI helpers ---------- */
+
+    const Accordion = ({ title, typeKey, children }) => (
+        <section className="card card--plain" style={{ background: '#fff' }}>
+            <button
+                type="button"
+                onClick={() => setExpanded(prev => ({ ...prev, [typeKey]: !prev[typeKey] }))}
+                style={accordionHeaderStyle}
+                aria-expanded={!!expanded[typeKey]}
+            >
+                <span className="label" style={{ fontSize: 13 }}>{title}</span>
+                <span style={{ transform: expanded[typeKey] ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform .2s' }}>⌄</span>
+            </button>
+            {expanded[typeKey] && (
+                <div style={{ paddingTop: 8 }}>
+                    {children}
+                </div>
+            )}
+        </section>
+    );
 
     const SquareGrid = ({ children }) => (
-        <div
-            style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: 10,
-            }}
-        >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
             {children}
         </div>
     );
 
-    // Bigger logos/images: 48–56px looks balanced in a 88–96px tile
+    // Logos bigger for Mobile Money (56), smaller for Crypto (42) to avoid overflow
     const SquareTile = ({ active, onClick, logoUrl, name, logoSize = 52 }) => (
         <button
             onClick={onClick}
@@ -208,26 +236,20 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
         </button>
     );
 
-    const renderGroup = (label, list) => {
-        if (!list?.length) return null;
-        return (
-            <div className="card card--plain" style={{ background: '#fff' }} key={label}>
-                <div className="label" style={{ marginBottom: 8 }}>{label}</div>
-                <SquareGrid>
-                    {list.map((m) => (
-                        <SquareTile
-                            key={m.id}
-                            active={methodId === m.id}
-                            onClick={() => setMethodId(m.id)}
-                            logoUrl={m.logoUrl}
-                            name={m.name}
-                            logoSize={56}  // <-- larger logos for payment methods
-                        />
-                    ))}
-                </SquareGrid>
-            </div>
-        );
-    };
+    const renderGroupTiles = (list, logoSize) => (
+        <SquareGrid>
+            {list.map((m) => (
+                <SquareTile
+                    key={m.id}
+                    active={methodId === m.id}
+                    onClick={() => setMethodId(m.id)}
+                    logoUrl={m.logoUrl}
+                    name={m.name}
+                    logoSize={logoSize}
+                />
+            ))}
+        </SquareGrid>
+    );
 
     const presets = useMemo(() => safePresets, [safePresets]);
 
@@ -273,53 +295,65 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                 </section>
             )}
 
-            {/* Grouped methods in compact square tiles */}
-            {GROUP_ORDER.map((t) => renderGroup(labelForType(t), grouped[t]))}
+            {/* Accordions per group */}
+            {GROUP_ORDER.map((t) => {
+                const list = grouped[t];
+                if (!list?.length) return null;
 
-            {/* Mobile money number (calling code on the left, editable local number) */}
-            {isMobile && (
-                <section className="card card--plain">
-                    <label className="label" style={{ marginBottom: 8 }}>Téléphone Mobile Money</label>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <input
-                            className="input"
-                            style={{ maxWidth: 120, color: '#0f172a', background: '#F8FAFC' }}
-                            value={`+${callingCode}`}
-                            readOnly
-                            aria-label="Indicatif pays"
-                        />
-                        <input
-                            className="input"
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                            inputMode="numeric"
-                            placeholder="Numéro (ex: 970000000)"
-                        />
-                    </div>
-                    <p className="p-muted" style={{ marginTop: 6, fontSize: 12 }}>
-                        Format attendu: +{callingCode}{phone || '970000000'}
-                    </p>
-                </section>
-            )}
+                // Logo sizes tuned by type for visual balance
+                const logoSize = t === 'CRYPTO' ? 42 : 56;
 
-            {/* Crypto networks as square tiles, label only (no logos) */}
-            {isCrypto && (
-                <section className="card card--plain">
-                    <label className="label" style={{ marginBottom: 8 }}>Réseau</label>
-                    <SquareGrid>
-                        {networks.map(net => (
-                            <SquareTile
-                                key={net.id}
-                                active={networkId === net.id}
-                                onClick={() => setNetworkId(net.id)}
-                                logoUrl={undefined}   // network has no logo — larger label used instead
-                                name={net.displayName || net.name}
-                                logoSize={0}          // hide placeholder
-                            />
-                        ))}
-                    </SquareGrid>
-                </section>
-            )}
+                return (
+                    <Accordion key={t} title={labelForType(t)} typeKey={t}>
+                        {renderGroupTiles(list, logoSize)}
+
+                        {/* Mobile phone input sits directly under Mobile Money tiles */}
+                        {t === 'MOBILE_MONEY' && isMobile && (
+                            <div style={{ marginTop: 10 }}>
+                                <label className="label" style={{ marginBottom: 8 }}>Téléphone Mobile Money</label>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <input
+                                        className="input"
+                                        style={{ maxWidth: 120, color: '#0f172a', background: '#F8FAFC' }}
+                                        value={`+${callingCode}`}
+                                        readOnly
+                                        aria-label="Indicatif pays"
+                                    />
+                                    <input
+                                        className="input"
+                                        value={phone}
+                                        onChange={(e) => setPhone(e.target.value)}
+                                        inputMode="numeric"
+                                        placeholder="Numéro (ex: 970000000)"
+                                    />
+                                </div>
+                                <p className="p-muted" style={{ marginTop: 6, fontSize: 12 }}>
+                                    Format attendu: +{callingCode}{phone || '970000000'}
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Crypto networks sit directly under Crypto tiles */}
+                        {t === 'CRYPTO' && isCrypto && (
+                            <div style={{ marginTop: 10 }}>
+                                <label className="label" style={{ marginBottom: 8 }}>Réseau</label>
+                                <SquareGrid>
+                                    {networks.map(net => (
+                                        <SquareTile
+                                            key={net.id}
+                                            active={networkId === net.id}
+                                            onClick={() => setNetworkId(net.id)}
+                                            logoUrl={null}   // networks have no logos; label only
+                                            name={net.displayName || net.name}
+                                            logoSize={0}     // hide the placeholder
+                                        />
+                                    ))}
+                                </SquareGrid>
+                            </div>
+                        )}
+                    </Accordion>
+                );
+            })}
 
             {/* Errors */}
             {err && <p className="err">{err}</p>}
@@ -338,6 +372,17 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
 }
 
 /* ------- helpers ------- */
+
+const accordionHeaderStyle = {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '8px 10px',
+    border: '1px solid var(--brand-border)',
+    borderRadius: 12,
+    background: 'var(--brand-primary-soft-2)',
+};
 
 function labelForType(t) {
     switch (t) {
