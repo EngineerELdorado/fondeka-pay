@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    async redirects() {
+        return [
+            { source: '/:lang(fr|en)', destination: '/', permanent: false },
+            { source: '/:lang(fr|en)/:path*', destination: '/:path*', permanent: false },
+        ];
+    },
     headers: async () => ([
         {
             source: '/:path*',
