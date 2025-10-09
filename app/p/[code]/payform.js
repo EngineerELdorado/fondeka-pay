@@ -1,13 +1,15 @@
+// app/p/[code]/payform.js
 'use client';
 
-import React, {useEffect, useMemo, useState} from 'react';
-import {API_BASE, http, idem} from '../../../lib/api';
+import React, { useEffect, useMemo, useState } from 'react';
+import { API_BASE, http, idem } from '../../../lib/api';
 
 const GROUP_ORDER = ['MOBILE_MONEY', 'CRYPTO', 'CARD', 'BANK_TRANSFER', 'WALLET', 'OTHER'];
 
-export default function PayForm({data = {}, detectedCountry = 'CD'}) {
-    const type = data.type || 'QUICK_CHARGE';
-    const currency = data.currency || 'USD';
+export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
+    /* ---------- Safe server data ---------- */
+    const type       = data.type || 'QUICK_CHARGE';
+    const currency   = data.currency || 'USD';
     const isDonation = type === 'DONATION';
 
     const safePresets = Array.isArray(data.presets) ? data.presets : [];
@@ -15,65 +17,61 @@ export default function PayForm({data = {}, detectedCountry = 'CD'}) {
         isDonation ? (safePresets?.[1] ?? data.minAmount ?? 0) : (data.amount ?? 0)
     );
 
-    // Country ISO used to fetch methods & format mobile numbers (user-editable)
+    /* ---------- Country (ISO) for rails & phone formatting ---------- */
     const [countryCode, setCountryCode] = useState((detectedCountry || 'CD').toUpperCase());
+    const callingCode = useMemo(() => mapIsoToCallingCode(countryCode) || '243', [countryCode]);
 
-    // Methods & selection
+    /* ---------- Methods & selection ---------- */
     const [methods, setMethods] = useState([]);
     const [grouped, setGrouped] = useState({});
     const [methodId, setMethodId] = useState(null);
     const selectedMethod = methods.find(m => m.id === methodId) || null;
 
-    // Crypto networks
+    /* ---------- Crypto networks ---------- */
     const isCrypto = selectedMethod?.type === 'CRYPTO';
     const isMobile = selectedMethod?.type === 'MOBILE_MONEY';
     const [networks, setNetworks] = useState([]);
     const [networkId, setNetworkId] = useState(null);
 
-    // Mobile number
+    /* ---------- Mobile Money phone ---------- */
     const [phone, setPhone] = useState('');
     const payerReference = useMemo(() => {
         if (!isMobile) return undefined;
         const digits = String(phone || '').replace(/\D+/g, '');
-        const cc = mapIsoToCallingCode(countryCode);
-        if (!cc || !digits) return undefined;
-        return `+${cc}${digits}`;
-    }, [isMobile, countryCode, phone]);
-    const callingCode = useMemo(() => mapIsoToCallingCode(countryCode) || '243', [countryCode]);
+        if (!callingCode || !digits) return undefined;
+        return `+${callingCode}${digits}`;
+    }, [isMobile, callingCode, phone]);
 
-    // UX
+    /* ---------- UX ---------- */
     const [busy, setBusy] = useState(false);
-    const [err, setErr] = useState(null);
+    const [err,  setErr]  = useState(null);
     const [status, setStatus] = useState('idle');
 
-    // Fetch methods for the country
+    /* ---------- Fetch methods by country ---------- */
     useEffect(() => {
         (async () => {
             try {
                 const res = await fetch(
                     `${API_BASE}/public/payment-requests/payment-methods?type=COLLECTION&countryCode=${encodeURIComponent(countryCode || 'CD')}`,
-                    {cache: 'no-store'}
+                    { cache: 'no-store' }
                 );
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const list = await res.json();
                 const arr = Array.isArray(list) ? list : [];
                 setMethods(arr);
 
+                // group & order
                 const g = arr.reduce((acc, m) => {
                     const t = m.type || 'OTHER';
                     (acc[t] ||= []).push(m);
                     return acc;
                 }, {});
-                const sorted = {};
-                GROUP_ORDER.forEach(t => {
-                    if (g[t]?.length) sorted[t] = g[t];
-                });
-                Object.keys(g).forEach(t => {
-                    if (!sorted[t]) sorted[t] = g[t];
-                });
-                setGrouped(sorted);
+                const ordered = {};
+                GROUP_ORDER.forEach(t => { if (g[t]?.length) ordered[t] = g[t]; });
+                Object.keys(g).forEach(t => { if (!ordered[t]) ordered[t] = g[t]; });
+                setGrouped(ordered);
 
-                const first = (sorted[GROUP_ORDER[0]]?.[0]) || arr[0] || null;
+                const first = (ordered[GROUP_ORDER[0]]?.[0]) || arr[0] || null;
                 setMethodId(first?.id ?? null);
             } catch (e) {
                 setErr(e?.message || 'Impossible de charger les méthodes de paiement.');
@@ -81,16 +79,15 @@ export default function PayForm({data = {}, detectedCountry = 'CD'}) {
         })();
     }, [countryCode]);
 
-    // Fetch networks for crypto selection
+    /* ---------- Fetch networks when selecting crypto ---------- */
     useEffect(() => {
         if (!isCrypto || !methodId) {
-            setNetworks([]);
-            setNetworkId(null);
+            setNetworks([]); setNetworkId(null);
             return;
         }
         (async () => {
             try {
-                const res = await fetch(`${API_BASE}/public/payment-requests/payment-methods/${methodId}/networks`, {cache: 'no-store'});
+                const res = await fetch(`${API_BASE}/public/payment-requests/payment-methods/${methodId}/networks`, { cache: 'no-store' });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const nets = await res.json();
                 setNetworks(Array.isArray(nets) ? nets : []);
@@ -101,13 +98,9 @@ export default function PayForm({data = {}, detectedCountry = 'CD'}) {
         })();
     }, [isCrypto, methodId]);
 
-    // Validation
+    /* ---------- Validation ---------- */
     const money = (n, curr) =>
-        n == null ? '' : new Intl.NumberFormat(undefined, {
-            style: 'currency',
-            currency: curr || 'USD',
-            maximumFractionDigits: 2
-        }).format(n || 0);
+        n == null ? '' : new Intl.NumberFormat(undefined, { style: 'currency', currency: curr || 'USD', maximumFractionDigits: 2 }).format(n || 0);
 
     const validate = () => {
         if (isDonation) {
@@ -124,95 +117,138 @@ export default function PayForm({data = {}, detectedCountry = 'CD'}) {
         return null;
     };
 
-    // Submit
+    /* ---------- Submit ---------- */
     const onPay = async () => {
         const v = validate();
-        if (v) {
-            setErr(v);
-            return;
-        }
-        setErr(null);
-        setBusy(true);
-        setStatus('pending');
+        if (v) { setErr(v); return; }
+        setErr(null); setBusy(true); setStatus('pending');
 
         try {
             const body = {
                 checkoutToken: data.checkoutToken || '',
                 paymentMethodId: methodId,
                 networkId: isCrypto ? networkId : undefined,
-                amount: isDonation ? Number(amount) : data.amount,
+                amount: isDonation ? Number(amount) : data.amount, // server ignores for fixed types
                 payerReference: isMobile ? payerReference : undefined,
                 idempotencyKey: idem(),
             };
 
             const res = await http(`${API_BASE}/public/checkout/attempts`, {
-                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
             });
 
             if (res.nextAction?.type === 'REDIRECT' && res.nextAction?.urlOrHint) {
-                window.location.href = res.nextAction.urlOrHint;
-                return;
+                window.location.href = res.nextAction.urlOrHint; return;
             }
             if (res.status === 'SUCCEEDED') setStatus('succeeded');
-            else if (res.status === 'FAILED') {
-                setStatus('failed');
-                setErr('Échec du paiement.');
-            } else setStatus('pending');
+            else if (res.status === 'FAILED') { setStatus('failed'); setErr('Échec du paiement.'); }
+            else setStatus('pending');
         } catch (e) {
             setErr(e?.message || 'Impossible de procéder au paiement.');
             setStatus('failed');
-        } finally {
-            setBusy(false);
-        }
+        } finally { setBusy(false); }
     };
+
+    /* ---------- UI helpers (square tiles) ---------- */
+
+    const SquareGrid = ({ children }) => (
+        <div
+            style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: 10,
+            }}
+        >
+            {children}
+        </div>
+    );
+
+    // Bigger logos/images: 48–56px looks balanced in a 88–96px tile
+    const SquareTile = ({ active, onClick, logoUrl, name, logoSize = 52 }) => (
+        <button
+            onClick={onClick}
+            className="tile"
+            style={{
+                borderColor: active ? 'var(--brand-primary)' : 'var(--brand-border)',
+                background: active ? 'var(--brand-primary-soft)' : '#fff',
+                borderRadius: 12,
+                width: '100%',
+                aspectRatio: '1 / 1',
+                padding: 10,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10,
+            }}
+        >
+            {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                    src={logoUrl}
+                    alt={name}
+                    style={{ width: logoSize, height: logoSize, objectFit: 'cover', borderRadius: 10 }}
+                />
+            ) : null}
+            <span
+                style={{
+                    fontSize: 12,
+                    lineHeight: '16px',
+                    textAlign: 'center',
+                    color: '#0f172a',
+                    fontWeight: 600,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                }}
+            >
+        {name}
+      </span>
+        </button>
+    );
 
     const renderGroup = (label, list) => {
         if (!list?.length) return null;
         return (
-            <div className="card card--plain" style={{background: '#fff'}} key={label}>
-                <div className="label" style={{marginBottom: 8}}>{label}</div>
-                <div className="grid-2">
+            <div className="card card--plain" style={{ background: '#fff' }} key={label}>
+                <div className="label" style={{ marginBottom: 8 }}>{label}</div>
+                <SquareGrid>
                     {list.map((m) => (
-                        <button
+                        <SquareTile
                             key={m.id}
-                            onClick={() => {
-                                setMethodId(m.id);
-                            }}
-                            className={`tile ${methodId === m.id ? 'tile--active' : ''}`}
-                            style={{display: 'flex', alignItems: 'center', gap: 8}}
-                        >
-                            {m.logoUrl && (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img src={m.logoUrl} alt={m.name}
-                                     style={{width: 20, height: 20, borderRadius: 4, objectFit: 'cover'}}/>
-                            )}
-                            <span>{m.name}</span>
-                        </button>
+                            active={methodId === m.id}
+                            onClick={() => setMethodId(m.id)}
+                            logoUrl={m.logoUrl}
+                            name={m.name}
+                            logoSize={56}  // <-- larger logos for payment methods
+                        />
                     ))}
-                </div>
+                </SquareGrid>
             </div>
         );
     };
 
     const presets = useMemo(() => safePresets, [safePresets]);
 
+    /* ---------- Render ---------- */
+
     return (
-        <div style={{display: 'flex', flexDirection: 'column', gap: 12}}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {/* Amount */}
             {isDonation ? (
                 <section className="card">
                     <label className="label">Montant</label>
                     {!!presets.length && (
-                        <div style={{display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8}}>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                             {presets.map((p, i) => (
-                                <button key={`${p}-${i}`} onClick={() => setAmount(p)}
-                                        className={`chip ${amount === p ? 'chip--active' : ''}`}>
+                                <button key={`${p}-${i}`} onClick={() => setAmount(p)} className={`chip ${amount===p ? 'chip--active' : ''}`}>
                                     {money(p, currency)}
                                 </button>
                             ))}
                         </div>
                     )}
-                    <div style={{display: 'flex', alignItems: 'center', gap: 8, marginTop: 10}}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
                         <input
                             inputMode="decimal"
                             className="input"
@@ -220,34 +256,34 @@ export default function PayForm({data = {}, detectedCountry = 'CD'}) {
                             onChange={(e) => setAmount(Number(e.target.value || 0))}
                             placeholder={`Ex: ${data.minAmount ?? 0}`}
                         />
-                        <span style={{fontSize: 14, color: 'var(--brand-muted)'}}>{currency}</span>
+                        <span style={{ fontSize: 14, color: 'var(--brand-muted)' }}>{currency}</span>
                     </div>
-                    {(data.minAmount != null || data.maxAmount != null) && (
-                        <p style={{margin: '6px 0 0', fontSize: 12, color: 'var(--brand-muted)'}}>
+                    {(data.minAmount!=null || data.maxAmount!=null) && (
+                        <p style={{ margin: '6px 0 0', fontSize: 12, color: 'var(--brand-muted)' }}>
                             Limites: {data.minAmount ?? '—'} – {data.maxAmount ?? '—'} {currency}
                         </p>
                     )}
                 </section>
             ) : (
                 <section className="card">
-                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span className="label">{type === 'INVOICE' ? 'Total à payer' : 'Montant'}</span>
-                        <strong style={{fontSize: 16}}>{money(data.amount, currency)}</strong>
+                        <strong style={{ fontSize: 16 }}>{money(data.amount, currency)}</strong>
                     </div>
                 </section>
             )}
 
-            {/* Grouped payment methods */}
+            {/* Grouped methods in compact square tiles */}
             {GROUP_ORDER.map((t) => renderGroup(labelForType(t), grouped[t]))}
 
-            {/* Mobile money extra field */}
+            {/* Mobile money number (calling code on the left, editable local number) */}
             {isMobile && (
                 <section className="card card--plain">
-                    <label className="label" style={{marginBottom: 8}}>Téléphone Mobile Money</label>
-                    <div style={{display: 'flex', gap: 8}}>
+                    <label className="label" style={{ marginBottom: 8 }}>Téléphone Mobile Money</label>
+                    <div style={{ display: 'flex', gap: 8 }}>
                         <input
                             className="input"
-                            style={{maxWidth: 110, color: '#0f172a', background: '#F8FAFC'}}
+                            style={{ maxWidth: 120, color: '#0f172a', background: '#F8FAFC' }}
                             value={`+${callingCode}`}
                             readOnly
                             aria-label="Indicatif pays"
@@ -260,27 +296,28 @@ export default function PayForm({data = {}, detectedCountry = 'CD'}) {
                             placeholder="Numéro (ex: 970000000)"
                         />
                     </div>
-                    {/*<p className="p-muted" style={{marginTop: 6, fontSize: 12}}>*/}
-                    {/*    Format attendu: +{mapIsoToCallingCode(countryCode) || '243'}{phone || '970000000'}*/}
-                    {/*</p>*/}
+                    <p className="p-muted" style={{ marginTop: 6, fontSize: 12 }}>
+                        Format attendu: +{callingCode}{phone || '970000000'}
+                    </p>
                 </section>
             )}
 
-            {/* Crypto networks */}
+            {/* Crypto networks as square tiles, label only (no logos) */}
             {isCrypto && (
                 <section className="card card--plain">
-                    <label className="label" style={{marginBottom: 8}}>Réseau</label>
-                    <div className="grid-2">
+                    <label className="label" style={{ marginBottom: 8 }}>Réseau</label>
+                    <SquareGrid>
                         {networks.map(net => (
-                            <button
+                            <SquareTile
                                 key={net.id}
+                                active={networkId === net.id}
                                 onClick={() => setNetworkId(net.id)}
-                                className={`tile ${networkId === net.id ? 'tile--active' : ''}`}
-                            >
-                                {net.displayName || net.name}
-                            </button>
+                                logoUrl={undefined}   // network has no logo — larger label used instead
+                                name={net.displayName || net.name}
+                                logoSize={0}          // hide placeholder
+                            />
                         ))}
-                    </div>
+                    </SquareGrid>
                 </section>
             )}
 
@@ -288,15 +325,14 @@ export default function PayForm({data = {}, detectedCountry = 'CD'}) {
             {err && <p className="err">{err}</p>}
 
             {/* CTA */}
-            <button className="btn btn--primary" onClick={onPay} disabled={busy} style={{opacity: busy ? .6 : 1}}>
+            <button className="btn btn--primary" onClick={onPay} disabled={busy} style={{ opacity: busy ? .6 : 1 }}>
                 {busy ? 'Traitement…' : 'Payer maintenant'}
             </button>
 
             {/* Status */}
-            {status === 'pending' && <p className="note">Confirmation en cours…</p>}
-            {status === 'succeeded' && <p className="note" style={{color: '#16a34a'}}>Paiement reçu. Merci !</p>}
-            {status === 'failed' &&
-                <p className="note" style={{color: '#dc2626'}}>Paiement échoué. Essayez une autre méthode.</p>}
+            {status === 'pending'   && <p className="note">Confirmation en cours…</p>}
+            {status === 'succeeded' && <p className="note" style={{ color:'#16a34a' }}>Paiement reçu. Merci !</p>}
+            {status === 'failed'    && <p className="note" style={{ color:'#dc2626' }}>Paiement échoué. Essayez une autre méthode.</p>}
         </div>
     );
 }
@@ -305,18 +341,12 @@ export default function PayForm({data = {}, detectedCountry = 'CD'}) {
 
 function labelForType(t) {
     switch (t) {
-        case 'MOBILE_MONEY':
-            return 'Mobile Money';
-        case 'CRYPTO':
-            return 'Crypto';
-        case 'CARD':
-            return 'Carte';
-        case 'BANK_TRANSFER':
-            return 'Virement';
-        case 'WALLET':
-            return 'Portefeuille';
-        default:
-            return 'Autres';
+        case 'MOBILE_MONEY': return 'Mobile Money';
+        case 'CRYPTO':       return 'Crypto';
+        case 'CARD':         return 'Carte';
+        case 'BANK_TRANSFER':return 'Virement';
+        case 'WALLET':       return 'Portefeuille';
+        default:             return 'Autres';
     }
 }
 

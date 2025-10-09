@@ -1,10 +1,12 @@
 // app/p/[code]/page.js
 import { API_BASE } from '../../../lib/api';
 import PayForm from './payform';
+import LightboxClient from './lightbox-client'; // client component for media clicks/lightbox
+import ReadMore from './readmore';             // client component for "Lire plus"
 import { notFound } from 'next/navigation';
 import { cookies, headers } from 'next/headers';
-import ReadMore from './readmore'; // keep if you use donation story clamp
-// If you don't have readmore.js yet, remove the import and its usage below.
+
+/* ------------------------- data fetching & helpers ------------------------- */
 
 async function fetchPublicLink(code) {
     try {
@@ -50,24 +52,31 @@ const getYouTubeId = (url) => {
     } catch { return null; }
 };
 
+/* ---------------------------------- page ---------------------------------- */
+
 export default async function Page({ params }) {
     const raw = await fetchPublicLink(params.code);
 
+    // 404 → Next.js not-found page
     if (raw === null) notFound();
 
+    // Soft error UI (no client handlers in server component)
     if (raw?.__error) {
+        const retryHref = `/p/${encodeURIComponent(params.code)}`;
         return (
             <main className="page">
                 <div className="wrap">
-                    <div className="brand-header"><div className="brand-logo" /><div className="brand-name">Fondeka</div></div>
+                    <div className="brand-header">
+                        <div className="brand-logo" />
+                        <div className="brand-name">Fondeka</div>
+                    </div>
+
                     <section className="card card--plain" style={{ borderColor: '#FECACA', background: '#FEF2F2' }}>
                         <h1 className="h1" style={{ fontSize: 18, marginBottom: 6 }}>Oups…</h1>
                         <p className="p-muted" style={{ color: '#991B1B' }}>{raw.__error || 'Une erreur est survenue.'}</p>
                         <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                             <a href="/" className="tile">Accueil</a>
-                            <button className="tile" onClick={() => { if (typeof window !== 'undefined') window.location.reload(); }}>
-                                Réessayer
-                            </button>
+                            <a href={retryHref} className="tile">Réessayer</a>
                         </div>
                     </section>
                 </div>
@@ -75,12 +84,12 @@ export default async function Page({ params }) {
         );
     }
 
+    /* Normalize & derive rendering flags */
     const data = normalizeData(raw);
     const isDonation = data.type === 'DONATION';
     const isInvoice  = data.type === 'INVOICE';
-    const ytId = getYouTubeId(data?.metadata?.youtubeUrl);
 
-    // Detect country (cookie set by middleware; fallback to headers; fallback to 'CD')
+    /* Country detection (from CDN headers via middleware cookie; fallback to headers; then ‘CD’) */
     const ck = cookies();
     let countryIso = ck.get('country_iso')?.value?.toUpperCase();
     if (!countryIso) {
@@ -92,17 +101,24 @@ export default async function Page({ params }) {
     }
     const detectedCountry = countryIso || 'CD';
 
-    // Donation media ordering
+    /* Donation media */
+    const ytId = getYouTubeId(data?.metadata?.youtubeUrl);
     const cover = data.image1 || null;
     const otherImages = [data.image2, data.image3, data.image4, data.image5].filter(Boolean);
+
+    /* Invoice items */
     const items = data.items;
     const sumItems = items.reduce((s, it) => s + Number(it.lineTotal || 0), 0);
 
     return (
         <main className="page">
             <div className="wrap">
-                <div className="brand-header"><div className="brand-logo" /><div className="brand-name">Fondeka</div></div>
+                <div className="brand-header">
+                    <div className="brand-logo" />
+                    <div className="brand-name">Fondeka</div>
+                </div>
 
+                {/* Header (keep donation header concise; story shown later after media) */}
                 <header style={{ marginBottom: 6 }}>
                     <h1 className="h1">{data.title || (isInvoice ? 'Facture' : isDonation ? 'Collecte' : 'Paiement')}</h1>
                     {!isDonation && data.description && (
@@ -110,57 +126,18 @@ export default async function Page({ params }) {
                     )}
                 </header>
 
-                {/* Donation media-first */}
+                {/* Donation: media-first (no event handlers here; clicks handled in client component) */}
                 {isDonation && (
-                    <>
-                        {ytId && (
-                            <section className="card card--plain">
-                                <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', borderRadius: 12, overflow: 'hidden' }}>
-                                    <iframe
-                                        src={`https://www.youtube.com/embed/${ytId}`}
-                                        title="YouTube video"
-                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                                        allowFullScreen
-                                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
-                                    />
-                                </div>
-                            </section>
-                        )}
-
-                        {cover && (
-                            <section className="card card--plain" style={{ padding: 0, overflow: 'hidden' }}>
-                                <div style={{ width: '100%', aspectRatio: '16/9', background: '#F3F8F5' }}>
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={cover} alt="Couverture" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                                </div>
-                            </section>
-                        )}
-
-                        {otherImages.length > 0 && (
-                            <section className="card card--plain" style={{ background: '#fff' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: otherImages.length >= 3 ? '1fr 1fr 1fr' : '1fr 1fr', gap: 8 }}>
-                                    {otherImages.map((src, idx) => (
-                                        <img
-                                            key={`${src}-${idx}`}
-                                            src={src}
-                                            alt={`Image ${idx + 2}`}
-                                            style={{ width: '100%', height: 92, borderRadius: 12, objectFit: 'cover' }}
-                                        />
-                                    ))}
-                                </div>
-                            </section>
-                        )}
-
-                        {data.description && (
-                            <section className="card card--plain">
-                                <h3 className="card-title" style={{ marginBottom: 6 }}>À propos</h3>
-                                <ReadMore text={data.description} collapsedChars={320} />
-                            </section>
-                        )}
-                    </>
+                    <LightboxClient
+                        ytId={ytId}
+                        cover={cover}
+                        otherImages={otherImages}
+                        story={data.description}
+                        images={[cover, ...otherImages].filter(Boolean)}
+                    />
                 )}
 
-                {/* Invoice items */}
+                {/* Invoice: items summary above form */}
                 {isInvoice && items.length > 0 && (
                     <section className="card card--plain">
                         <h3 className="card-title">Détail</h3>
@@ -170,7 +147,9 @@ export default async function Page({ params }) {
                                     <div style={{ flex: 1 }}>
                                         <div style={{ fontWeight: 700, fontSize: 14 }}>{it.name}</div>
                                         {it.description && <div style={{ color: '#64748B', fontSize: 12 }}>{it.description}</div>}
-                                        <div style={{ color: '#64748B', fontSize: 12 }}>{it.quantity} × {Number(it.unitPrice).toFixed(2)} {data.currency}</div>
+                                        <div style={{ color: '#64748B', fontSize: 12 }}>
+                                            {it.quantity} × {Number(it.unitPrice).toFixed(2)} {data.currency}
+                                        </div>
                                     </div>
                                     <div style={{ fontWeight: 800 }}>{Number(it.lineTotal).toFixed(2)} {data.currency}</div>
                                 </div>
@@ -186,7 +165,7 @@ export default async function Page({ params }) {
                     </section>
                 )}
 
-                {/* Pay form with detected country passed down */}
+                {/* Shared pay form (client component) */}
                 <PayForm data={data} detectedCountry={detectedCountry} />
             </div>
         </main>
