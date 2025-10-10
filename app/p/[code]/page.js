@@ -1,8 +1,8 @@
 // app/p/[code]/page.js
 import { API_BASE } from '../../../lib/api';
 import PayForm from './payform';
+import PaymentsFeed from './payments';
 import LightboxClient from './lightbox-client';
-import ReadMore from './readmore';
 import { notFound } from 'next/navigation';
 import { cookies, headers } from 'next/headers';
 
@@ -39,8 +39,10 @@ function normalizeData(d) {
         image3: d.image3 ?? null,
         image4: d.image4 ?? null,
         image5: d.image5 ?? null,
+        lifecycle: d.lifecycle ?? 'ACTIVE',
     };
 }
+const toNum = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 
 const getYouTubeId = (url) => {
     if (!url) return null;
@@ -52,24 +54,35 @@ const getYouTubeId = (url) => {
     } catch { return null; }
 };
 
+/* --------------------------- lifecycle evaluation -------------------------- */
+function evaluatePayability(type, lifecycle) {
+    const l = String(lifecycle || '').toUpperCase();
+    const t = String(type || '').toUpperCase();
+    if (l === 'ACTIVE') return { canPay: true, reason: null, tone: null };
+    if (['SUSPENDED','CANCELLED','CANCELED','EXPIRED'].includes(l)) {
+        const map = { SUSPENDED: 'Collecte suspendue', CANCELLED: 'Collecte annulée', CANCELED: 'Collecte annulée', EXPIRED: 'Collecte expirée' };
+        return { canPay: false, reason: map[l] || 'Paiements indisponibles', tone: 'warn' };
+    }
+    if (l === 'COMPLETED') {
+        return t === 'DONATION'
+            ? { canPay: false, reason: 'Objectif atteint — campagne clôturée', tone: 'info' }
+            : { canPay: false, reason: 'Demande clôturée (déjà réglée)', tone: 'info' };
+    }
+    return { canPay: false, reason: 'Paiements indisponibles pour le moment', tone: 'muted' };
+}
+
 /* ---------------------------------- page ---------------------------------- */
 
 export default async function Page({ params }) {
     const raw = await fetchPublicLink(params.code);
-
-    // 404 → not found
     if (raw === null) notFound();
 
-    // Soft error (no client handlers here)
     if (raw?.__error) {
         const retryHref = `/p/${encodeURIComponent(params.code)}`;
         return (
             <main className="page">
                 <div className="wrap">
-
-                    {/* Centered brand mark header */}
                     <HeaderLogo />
-
                     <section className="card card--plain" style={{ borderColor: '#FECACA', background: '#FEF2F2' }}>
                         <h1 className="h1" style={{ fontSize: 18, marginBottom: 6 }}>Oups…</h1>
                         <p className="p-muted" style={{ color: '#991B1B' }}>{raw.__error || 'Une erreur est survenue.'}</p>
@@ -86,8 +99,9 @@ export default async function Page({ params }) {
     const data = normalizeData(raw);
     const isDonation = data.type === 'DONATION';
     const isInvoice  = data.type === 'INVOICE';
+    const { canPay, reason } = evaluatePayability(data.type, data.lifecycle);
 
-    /* Country detection (cookie → headers → default CD) */
+    // country detect (cookie → headers → default)
     const ck = cookies();
     let countryIso = ck.get('country_iso')?.value?.toUpperCase();
     if (!countryIso) {
@@ -99,42 +113,48 @@ export default async function Page({ params }) {
     }
     const detectedCountry = countryIso || 'CD';
 
-    /* Donation media */
+    // Donation media
     const ytId = getYouTubeId(data?.metadata?.youtubeUrl);
     const cover = data.image1 || null;
     const otherImages = [data.image2, data.image3, data.image4, data.image5].filter(Boolean);
 
-    /* Invoice items */
-    const items = data.items;
-    const sumItems = items.reduce((s, it) => s + Number(it.lineTotal || 0), 0);
+    // (Optional) invoice items if present
+    const items = data.items || [];
 
     return (
         <main className="page">
             <div className="wrap">
 
-                {/* Centered brand mark header (its own row) */}
+                {/* Brand header */}
                 <HeaderLogo />
 
-                {/* Title / creator (creator directly under title with good hierarchy) */}
+                {/* Title / creator */}
                 <header style={{ marginBottom: 6 }}>
-                    <h1 className="h1" style={{ textAlign: 'left' }}>
+                    <h1 className="h1">
                         {data.title || (isInvoice ? 'Facture' : isDonation ? 'Collecte' : 'Paiement')}
                     </h1>
-
                     {data.creator && (
                         <div style={{ marginTop: 4, fontSize: 13, display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
                             <span style={{ color: 'var(--brand-muted)' }}>Created by</span>
                             <strong style={{ color: 'var(--brand-primary)' }}>{data.creator}</strong>
                         </div>
                     )}
-
-                    {/* For donation, the long story is shown later under media */}
                     {!isDonation && data.description && (
                         <p className="p-muted" style={{ whiteSpace: 'pre-wrap' }}>{data.description}</p>
                     )}
                 </header>
 
-                {/* Donation: media-first */}
+                {/* Lifecycle banner */}
+                {!canPay && (
+                    <section className="card card--plain" style={{ borderColor: 'var(--brand-border)', background: '#FFF8F0' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                            <span style={{ width:10, height:10, borderRadius:5, background:'#F59E0B', flex:'0 0 auto' }} />
+                            <strong style={{ color:'#92400E' }}>{reason}</strong>
+                        </div>
+                    </section>
+                )}
+
+                {/* Donation media-first */}
                 {isDonation && (
                     <LightboxClient
                         ytId={ytId}
@@ -145,7 +165,7 @@ export default async function Page({ params }) {
                     />
                 )}
 
-                {/* Invoice: items summary */}
+                {/* Invoice items */}
                 {isInvoice && items.length > 0 && (
                     <section className="card card--plain">
                         <h3 className="card-title">Détail</h3>
@@ -162,19 +182,21 @@ export default async function Page({ params }) {
                                     <div style={{ fontWeight: 800, whiteSpace: 'nowrap' }}>{Number(it.lineTotal).toFixed(2)} {data.currency}</div>
                                 </div>
                             ))}
-                            <div style={{ height: 1, background: 'var(--brand-border)', margin: '6px 0' }} />
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <span className="label">Total</span>
-                                <strong style={{ fontSize: 16, whiteSpace: 'nowrap' }}>
-                                    {(data.amount ?? sumItems)?.toFixed(2)} {data.currency}
-                                </strong>
-                            </div>
                         </div>
                     </section>
                 )}
 
-                {/* Pay form */}
-                <PayForm data={data} detectedCountry={detectedCountry} />
+                {/* Pay form (disabled when not payable) */}
+                <PayForm
+                    data={data}
+                    detectedCountry={detectedCountry}
+                    publicCode={params.code}
+                    canPay={canPay}
+                    disabledReason={reason}
+                />
+
+                {/* Endless payments list */}
+                <PaymentsFeed publicCode={params.code} currency={data.currency || 'USD'} requestType={data.type} />
             </div>
         </main>
     );
@@ -182,8 +204,7 @@ export default async function Page({ params }) {
 
 /* ------------------------------- subcomponents ------------------------------ */
 
-/** Brand mark header: rounded green square + "Fondeka", centered, tight spacing */
-/** Brand mark header: green rounded square + white dot + “Fondeka”, centered */
+/** Brand mark header: green rounded square + top-right white dot + “Fondeka”, centered */
 function HeaderLogo() {
     return (
         <div
@@ -196,7 +217,7 @@ function HeaderLogo() {
             }}
         >
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-                {/* Green rounded square with a tiny white dot */}
+                {/* Green rounded square with top-right white dot */}
                 <div
                     aria-hidden="true"
                     style={{
@@ -209,12 +230,11 @@ function HeaderLogo() {
                         flex: '0 0 auto',
                     }}
                 >
-                    {/* White dot (slightly offset for visual interest) */}
                     <div
                         style={{
                             position: 'absolute',
-                            right: 4,     // adjust to taste (try 3–5)
-                            top: 4,       // adjust to taste (try 3–5)
+                            right: 4,
+                            top: 4,
                             width: 6,
                             height: 6,
                             background: '#fff',
@@ -223,13 +243,12 @@ function HeaderLogo() {
                         }}
                     />
                 </div>
-
                 <div
                     style={{
                         fontWeight: 900,
                         letterSpacing: 0.3,
                         color: 'var(--brand-primary)',
-                        fontSize: 24,
+                        fontSize: 16,
                         lineHeight: '16px',
                     }}
                 >
@@ -238,12 +257,4 @@ function HeaderLogo() {
             </div>
         </div>
     );
-}
-
-
-/* -------------------------------- utilities -------------------------------- */
-
-function toNum(v) {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
 }
