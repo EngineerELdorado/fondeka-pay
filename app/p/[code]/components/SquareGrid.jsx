@@ -31,7 +31,7 @@ export const SquareTile = memo(function SquareTile({ active, onClick, logoUrl, n
                 <img src={logoUrl} alt={name} style={{ width: logoSize, height: logoSize, objectFit: 'contain', borderRadius: 8 }} />
             ) : null}
             <span style={{
-                fontSize: 11, lineHeight: '14px', textAlign: 'center', color: '#0f172a', fontWeight: 600,
+                lineHeight: '14px', textAlign: 'center', color: '#0f172a', fontWeight: 600,
                 display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', width: '100%',
             }}>
         {name}

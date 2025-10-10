@@ -19,7 +19,7 @@ const Accordion = memo(function Accordion({ title, typeKey, open, onToggle, disa
                 aria-expanded={open}
                 disabled={disabled}
             >
-                <span className="label" style={{ fontSize: 13 }}>{title}</span>
+                <span className="label">{title}</span>
                 <span style={{
                     width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                     borderRadius: 8, background: open ? 'var(--brand-primary-soft)' : '#EEF2F7',

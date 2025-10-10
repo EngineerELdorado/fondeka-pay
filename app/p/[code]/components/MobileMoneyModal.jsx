@@ -24,7 +24,7 @@ export default function MobileMoneyModal({ open, onClose, number, hint, onRefres
                         Verifiez votre telephone qui heberge ce numero et validez l’opération.
                     </p>
 
-                    {hint && <p className="p-muted" style={{ fontSize: 12, marginTop: 6 }}>{hint}</p>}
+                    {hint && <p className="p-muted" style={{ marginTop: 6 }}>{hint}</p>}
                 </div>
             </div>
         </div>

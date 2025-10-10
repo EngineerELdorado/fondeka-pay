@@ -1,21 +1,21 @@
 // app/p/[code]/page.js
-import { API_BASE } from '../../../lib/api';
+import {API_BASE} from '../../../lib/api';
 import PayForm from './payform';
 import PaymentsFeed from './payments';
 import LightboxClient from './lightbox-client';
-import { notFound } from 'next/navigation';
-import { cookies, headers } from 'next/headers';
+import {notFound} from 'next/navigation';
+import {cookies, headers} from 'next/headers';
 
 /* ------------------------- data fetching & helpers ------------------------- */
 
 async function fetchPublicLink(code) {
     try {
-        const res = await fetch(`${API_BASE}/public/payment-requests/${code}`, { cache: 'no-store' });
+        const res = await fetch(`${API_BASE}/public/payment-requests/${code}`, {cache: 'no-store'});
         if (res.status === 404) return null;
-        if (!res.ok) return { __error: `Erreur serveur (${res.status})` };
+        if (!res.ok) return {__error: `Erreur serveur (${res.status})`};
         return res.json();
     } catch {
-        return { __error: 'Connexion au serveur impossible.' };
+        return {__error: 'Connexion au serveur impossible.'};
     }
 }
 
@@ -42,7 +42,11 @@ function normalizeData(d) {
         lifecycle: d.lifecycle ?? 'ACTIVE',
     };
 }
-const toNum = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
+
+const toNum = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+};
 
 const getYouTubeId = (url) => {
     if (!url) return null;
@@ -51,29 +55,36 @@ const getYouTubeId = (url) => {
         if (u.hostname.includes('youtu.be')) return u.pathname.slice(1);
         if (u.hostname.includes('youtube.com')) return u.searchParams.get('v') || null;
         return null;
-    } catch { return null; }
+    } catch {
+        return null;
+    }
 };
 
 /* --------------------------- lifecycle evaluation -------------------------- */
 function evaluatePayability(type, lifecycle) {
     const l = String(lifecycle || '').toUpperCase();
     const t = String(type || '').toUpperCase();
-    if (l === 'ACTIVE') return { canPay: true, reason: null, tone: null };
-    if (['SUSPENDED','CANCELLED','CANCELED','EXPIRED'].includes(l)) {
-        const map = { SUSPENDED: 'Collecte suspendue', CANCELLED: 'Collecte annulée', CANCELED: 'Collecte annulée', EXPIRED: 'Collecte expirée' };
-        return { canPay: false, reason: map[l] || 'Paiements indisponibles', tone: 'warn' };
+    if (l === 'ACTIVE') return {canPay: true, reason: null, tone: null};
+    if (['SUSPENDED', 'CANCELLED', 'CANCELED', 'EXPIRED'].includes(l)) {
+        const map = {
+            SUSPENDED: 'Collecte suspendue',
+            CANCELLED: 'Collecte annulée',
+            CANCELED: 'Collecte annulée',
+            EXPIRED: 'Collecte expirée'
+        };
+        return {canPay: false, reason: map[l] || 'Paiements indisponibles', tone: 'warn'};
     }
     if (l === 'COMPLETED') {
         return t === 'DONATION'
-            ? { canPay: false, reason: 'Objectif atteint — campagne clôturée', tone: 'info' }
-            : { canPay: false, reason: 'Demande clôturée (déjà réglée)', tone: 'info' };
+            ? {canPay: false, reason: 'Objectif atteint — campagne clôturée', tone: 'info'}
+            : {canPay: false, reason: 'Demande clôturée (déjà réglée)', tone: 'info'};
     }
-    return { canPay: false, reason: 'Paiements indisponibles pour le moment', tone: 'muted' };
+    return {canPay: false, reason: 'Paiements indisponibles pour le moment', tone: 'muted'};
 }
 
 /* ---------------------------------- page ---------------------------------- */
 
-export default async function Page({ params }) {
+export default async function Page({params}) {
     const raw = await fetchPublicLink(params.code);
     if (raw === null) notFound();
 
@@ -82,11 +93,12 @@ export default async function Page({ params }) {
         return (
             <main className="page">
                 <div className="wrap">
-                    <HeaderLogo />
-                    <section className="card card--plain" style={{ borderColor: '#FECACA', background: '#FEF2F2' }}>
-                        <h1 className="h1" style={{ fontSize: 18, marginBottom: 6 }}>Oups…</h1>
-                        <p className="p-muted" style={{ color: '#991B1B' }}>{raw.__error || 'Une erreur est survenue.'}</p>
-                        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                    <HeaderLogo/>
+                    <section className="card card--plain" style={{borderColor: '#FECACA', background: '#FEF2F2'}}>
+                        <h1 className="h1" style={{fontSize: 18, marginBottom: 6}}>Oups…</h1>
+                        <p className="p-muted"
+                           style={{color: '#991B1B'}}>{raw.__error || 'Une erreur est survenue.'}</p>
+                        <div style={{display: 'flex', gap: 8, marginTop: 10}}>
                             <a href="/" className="tile">Accueil</a>
                             <a href={retryHref} className="tile">Réessayer</a>
                         </div>
@@ -98,8 +110,8 @@ export default async function Page({ params }) {
 
     const data = normalizeData(raw);
     const isDonation = data.type === 'DONATION';
-    const isInvoice  = data.type === 'INVOICE';
-    const { canPay, reason } = evaluatePayability(data.type, data.lifecycle);
+    const isInvoice = data.type === 'INVOICE';
+    const {canPay, reason} = evaluatePayability(data.type, data.lifecycle);
 
     // country detect (cookie → headers → default)
     const ck = cookies();
@@ -126,30 +138,44 @@ export default async function Page({ params }) {
             <div className="wrap">
 
                 {/* Brand header */}
-                <HeaderLogo />
+                <HeaderLogo/>
 
                 {/* Title / creator */}
-                <header style={{ marginBottom: 6 }}>
+                <header style={{marginBottom: 6}}>
                     <h1 className="h1">
                         {data.title || (isInvoice ? 'Facture' : isDonation ? 'Collecte' : 'Paiement')}
                     </h1>
                     {data.creator && (
-                        <div style={{ marginTop: 4, fontSize: 13, display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
-                            <span style={{ color: 'var(--brand-muted)' }}>Created by</span>
-                            <strong style={{ color: 'var(--brand-primary)' }}>{data.creator}</strong>
+                        <div style={{
+                            marginTop: 4,
+                            fontSize: 13,
+                            display: 'flex',
+                            gap: 6,
+                            alignItems: 'baseline',
+                            flexWrap: 'wrap'
+                        }}>
+                            <span style={{color: 'var(--brand-muted)'}}>Created by</span>
+                            <strong style={{color: 'var(--brand-primary)'}}>{data.creator}</strong>
                         </div>
                     )}
                     {!isDonation && data.description && (
-                        <p className="p-muted" style={{ whiteSpace: 'pre-wrap' }}>{data.description}</p>
+                        <p className="p-muted" style={{whiteSpace: 'pre-wrap'}}>{data.description}</p>
                     )}
                 </header>
 
                 {/* Lifecycle banner */}
                 {!canPay && (
-                    <section className="card card--plain" style={{ borderColor: 'var(--brand-border)', background: '#FFF8F0' }}>
-                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                            <span style={{ width:10, height:10, borderRadius:5, background:'#F59E0B', flex:'0 0 auto' }} />
-                            <strong style={{ color:'#92400E' }}>{reason}</strong>
+                    <section className="card card--plain"
+                             style={{borderColor: 'var(--brand-border)', background: '#FFF8F0'}}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
+                            <span style={{
+                                width: 10,
+                                height: 10,
+                                borderRadius: 5,
+                                background: '#F59E0B',
+                                flex: '0 0 auto'
+                            }}/>
+                            <strong style={{color: '#92400E'}}>{reason}</strong>
                         </div>
                     </section>
                 )}
@@ -169,17 +195,22 @@ export default async function Page({ params }) {
                 {isInvoice && items.length > 0 && (
                     <section className="card card--plain">
                         <h3 className="card-title">Détail</h3>
-                        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div style={{marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8}}>
                             {items.map((it) => (
-                                <div key={it.id || `${it.name}-${Math.random()}`} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontWeight: 700, fontSize: 14 }}>{it.name}</div>
-                                        {it.description && <div style={{ color: '#64748B', fontSize: 12 }}>{it.description}</div>}
-                                        <div style={{ color: '#64748B', fontSize: 12 }}>
+                                <div key={it.id || `${it.name}-${Math.random()}`}
+                                     style={{display: 'flex', alignItems: 'center', gap: 8}}>
+                                    <div style={{flex: 1, minWidth: 0}}>
+                                        <div style={{fontWeight: 700, fontSize: 14}}>{it.name}</div>
+                                        {it.description &&
+                                            <div style={{color: '#64748B', fontSize: 12}}>{it.description}</div>}
+                                        <div style={{color: '#64748B', fontSize: 12}}>
                                             {it.quantity} × {Number(it.unitPrice).toFixed(2)} {data.currency}
                                         </div>
                                     </div>
-                                    <div style={{ fontWeight: 800, whiteSpace: 'nowrap' }}>{Number(it.lineTotal).toFixed(2)} {data.currency}</div>
+                                    <div style={{
+                                        fontWeight: 800,
+                                        whiteSpace: 'nowrap'
+                                    }}>{Number(it.lineTotal).toFixed(2)} {data.currency}</div>
                                 </div>
                             ))}
                         </div>
@@ -196,7 +227,8 @@ export default async function Page({ params }) {
                 />
 
                 {/* Endless payments list */}
-                <PaymentsFeed publicCode={params.code} currency={data.currency || 'USD'} requestType={data.type} />
+                {data.type === 'DONATION' && (
+                    <PaymentsFeed publicCode={params.code} currency={data.currency || 'USD'} requestType={data.type}/>)}
             </div>
         </main>
     );
@@ -216,7 +248,7 @@ function HeaderLogo() {
                 margin: '2px 0 10px',
             }}
         >
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+            <div style={{display: 'inline-flex', alignItems: 'center', gap: 10}}>
                 {/* Green rounded square with top-right white dot */}
                 <div
                     aria-hidden="true"

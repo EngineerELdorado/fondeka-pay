@@ -16,7 +16,7 @@ export default function CryptoQrModal({ open, onClose, address, amount, networkN
                 </div>
 
                 {hint && (
-                    <div style={{ marginTop:10, border:'1px solid var(--brand-border)', background:'var(--brand-primary-soft-2)', borderRadius:10, padding:'8px 10px', color:'#0f172a', fontWeight:700, fontSize:13 }}>
+                    <div style={{ marginTop:10, border:'1px solid var(--brand-border)', background:'var(--brand-primary-soft-2)', borderRadius:10, padding:'8px 10px', color:'#0f172a', fontWeight:700 }}>
                         {hint}
                     </div>
                 )}
@@ -30,7 +30,7 @@ export default function CryptoQrModal({ open, onClose, address, amount, networkN
 
                         <div className="label" style={{ marginBottom:6 }}>Adresse</div>
                         <div style={{ border:'1px solid var(--brand-border)', borderRadius:10, padding:'10px 12px',
-                            fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize:13,
+                            fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace',
                             maxWidth:'100%', overflow:'hidden', textOverflow:'ellipsis' }}
                              title={address}>
                             {address || '—'}

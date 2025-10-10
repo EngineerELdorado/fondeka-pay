@@ -20,7 +20,7 @@ const NetworkPills = memo(function NetworkPills({ items, selectedId, onSelect, d
                             color: active ? 'var(--brand-primary)' : '#0f172a',
                             padding: '10px 12px',
                             borderRadius: 999,
-                            fontWeight: 700, fontSize: 13,
+                            fontWeight: 700,
                         }}
                     >
             <span

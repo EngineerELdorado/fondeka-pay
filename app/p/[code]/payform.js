@@ -324,7 +324,7 @@ export default function PayForm({
             <div className="label" style={{ marginTop: 2 }}>
                 How do you want to pay?
                 {disabledReason && (
-                    <span style={{ display: 'block', color: '#64748B', fontSize: 12, marginTop: 4 }}>
+                    <span style={{ display: 'block', color: '#64748B', fontSize: 14, marginTop: 4 }}>
             {disabledReason}
           </span>
                 )}
