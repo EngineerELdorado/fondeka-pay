@@ -1,178 +1,127 @@
-// app/p/[code]/payform.js
 'use client';
 
-import React, {
-    memo, forwardRef, useEffect, useMemo, useRef, useState,
-} from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { API_BASE, http, idem } from '../../../lib/api';
+import {
+    GROUP_ORDER,
+    labelForType,
+    mapIsoToCallingCode,
+    money,
+    parseCryptoHint,
+    prettyError,
+    shouldRefreshOnError,
+} from './utils/payform-helpers';
 
-const GROUP_ORDER = ['MOBILE_MONEY', 'CRYPTO', 'CARD', 'BANK_TRANSFER', 'WALLET', 'OTHER'];
+import Accordion from './components/Accordion';
+import MobilePhoneField from './components/MobilePhoneField';
+import NetworkPills from './components/NetworkPills';
+import SquareGrid, { SquareTile } from './components/SquareGrid';
+import CryptoQrModal from './components/CryptoQrModal';
+import MobileMoneyModal from './components/MobileMoneyModal';
 
-export default function PayForm({ data = {}, detectedCountry = 'CD', publicCode, canPay = true, disabledReason = null }) {
+import usePaymentMethods from './hooks/usePaymentMethods';
+import useCryptoNetworks from './hooks/useCryptoNetworks';
+
+export default function PayForm({
+                                    data = {},
+                                    detectedCountry = 'CD',
+                                    publicCode,
+                                    canPay = true,
+                                    disabledReason = null,
+                                }) {
     const disabled = !canPay;
 
-    /* ---------- Immutable server props ---------- */
     const type       = data.type || 'QUICK_CHARGE';
     const currency   = data.currency || 'USD';
     const isDonation = type === 'DONATION';
 
-    // keep a live token (refreshed on error)
     const [checkoutToken, setCheckoutToken] = useState(data.checkoutToken || '');
 
-    const defaultDonationAmount = Array.isArray(data.presets) && data.presets.length
-        ? String(data.presets[1] ?? data.presets[0])
-        : (data.minAmount != null ? String(data.minAmount) : '0');
-
-    /* ---------- Country / calling code ---------- */
     const [countryCode] = useState((detectedCountry || 'CD').toUpperCase());
     const callingCode = useMemo(() => mapIsoToCallingCode(countryCode) || '243', [countryCode]);
 
-    /* ---------- Methods & selection ---------- */
-    const [methods, setMethods] = useState([]);
-    const [grouped, setGrouped] = useState({});
-    const [methodId, setMethodId] = useState(null);
+    // Hooks now DO NOT auto-select a method; methodId starts as null
+    const { methods, grouped, methodId, setMethodId, error: methodsError } = usePaymentMethods(countryCode);
     const selectedMethod = methods.find(m => m.id === methodId) || null;
     const isCrypto = selectedMethod?.type === 'CRYPTO';
     const isMobile = selectedMethod?.type === 'MOBILE_MONEY';
 
-    /* ---------- Crypto networks ---------- */
-    const [networks, setNetworks] = useState([]);
-    const [networkId, setNetworkId] = useState(null);
+    const { networks, networkId, setNetworkId, error: networksError } = useCryptoNetworks(isCrypto, methodId);
 
-    /* ---------- Uncontrolled inputs (refs) ---------- */
     const amountRef = useRef(null);
     const phoneRef  = useRef(null);
     const nameRef   = useRef(null);
     const emailRef  = useRef(null);
 
-    /* ---------- UX ---------- */
     const [busy, setBusy] = useState(false);
     const [err,  setErr]  = useState(null);
     const [status, setStatus] = useState('idle');
 
-    // Result data after submit
-    const [result, setResult] = useState(null);       // { rail:'MM'|'CRYPTO', ... }
-    const [showQr, setShowQr] = useState(false);      // crypto modal
-    const [showMM, setShowMM] = useState(false);      // mobile money modal
+    const [result, setResult] = useState(null);
+    const [showQr, setShowQr] = useState(false);
+    const [showMM, setShowMM] = useState(false);
     const [canRefresh, setCanRefresh] = useState(false);
 
-    /* ---------- Fetch methods ---------- */
-    useEffect(() => {
-        (async () => {
-            try {
-                const res = await fetch(
-                    `${API_BASE}/public/payment-requests/payment-methods?type=COLLECTION&countryCode=${encodeURIComponent(countryCode)}`,
-                    { cache: 'no-store' }
-                );
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const list = await res.json();
-                const arr = Array.isArray(list) ? list : [];
-                setMethods(arr);
+    // validity + controlled phone
+    const [amountValid, setAmountValid] = useState(() => !isDonation ? Number(data.amount) > 0 : false);
+    const [phoneValid, setPhoneValid]   = useState(false);
+    const [phoneDigits, setPhoneDigits] = useState(''); // controlled digits (without +country)
 
-                const g = arr.reduce((acc, m) => {
-                    const t = m.type || 'OTHER';
-                    (acc[t] ||= []).push(m);
-                    return acc;
-                }, {});
-                const ordered = {};
-                GROUP_ORDER.forEach(t => { if (g[t]?.length) ordered[t] = g[t]; });
-                Object.keys(g).forEach(t => { if (!ordered[t]) ordered[t] = g[t]; });
-                setGrouped(ordered);
-
-                setMethodId((ordered[GROUP_ORDER[0]]?.[0] || arr[0] || {}).id ?? null);
-            } catch (e) {
-                setErr(e?.message || 'Impossible de charger les méthodes de paiement.');
-            }
-        })();
-    }, [countryCode]);
-
-    /* ---------- Fetch networks when crypto picked ---------- */
-    useEffect(() => {
-        if (!isCrypto || !methodId) { setNetworks([]); setNetworkId(null); return; }
-        (async () => {
-            try {
-                const res = await fetch(`${API_BASE}/public/payment-requests/payment-methods/${methodId}/networks`, { cache: 'no-store' });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const nets = await res.json();
-                const arr = Array.isArray(nets) ? nets : [];
-                setNetworks(arr);
-                setNetworkId(arr[0]?.id ?? null);
-            } catch (e) { setErr(e?.message || 'Impossible de charger les réseaux crypto.'); }
-        })();
-    }, [isCrypto, methodId]);
-
-    /* ---------- Accordions (fixed default; no resync) ---------- */
+    // ACCORDIONS: all collapsed by default; ONLY user clicks toggle them
     const [expanded, setExpanded] = useState(() => {
-        const init = {}; GROUP_ORDER.forEach(t => init[t] = (t === 'MOBILE_MONEY')); return init;
+        const init = {}; GROUP_ORDER.forEach(t => { init[t] = false; }); return init;
     });
+    const onToggleAccordion = useCallback((typeKey) => {
+        setExpanded(prev => ({ ...prev, [typeKey]: !prev[typeKey] }));
+    }, []);
 
-    /* ---------- Helpers ---------- */
-    const money = (n, curr) =>
-        n == null ? '' : new Intl.NumberFormat(undefined, { style: 'currency', currency: curr || 'USD', maximumFractionDigits: 2 }).format(n || 0);
+    // NOTE: we no longer auto-open accordions when a method is selected.
+    // We also don't pre-select any method.
 
+    /* ---------- utils ---------- */
     const getDonationAmountNumber = () => {
-        if (!isDonation) return data.amount ?? 0;
         const raw = amountRef.current?.value ?? '';
         const n = Number(String(raw).replace(',', '.'));
         return Number.isFinite(n) ? n : 0;
     };
 
-    const getAccountNumber = () => {
-        if (!isMobile) return undefined;
-        const raw = phoneRef.current?.value ?? '';
-        const digits = String(raw).replace(/\D+/g, '');
-        if (!callingCode || !digits) return undefined;
-        return `+${callingCode}${digits}`;
+    const buildE164 = (rawDigits) => {
+        const digits = String(rawDigits || '').replace(/\D+/g, '');
+        const cc = callingCode || '243';
+        if (!digits) return '';
+        return `+${cc}${digits}`;
     };
 
-    const getPayerEmail = () => (emailRef.current?.value || '').trim() || undefined;
-    const getPayerName  = () => (nameRef.current?.value  || '').trim() || undefined;
+    const getAccountNumber = () => (isMobile ? buildE164(phoneDigits) : undefined);
 
     const validate = () => {
         if (!methodId) return 'Veuillez choisir une méthode de paiement.';
-
         if (isDonation) {
             const n = getDonationAmountNumber();
             const hasMin = data.minAmount != null && Number(data.minAmount) > 0;
-            const hasMax = data.maxAmount != null && Number(data.maxAmount) > 0;  // enforce only if > 0
+            const hasMax = data.maxAmount != null && Number(data.maxAmount) > 0;
             if (n <= 0) return 'Veuillez entrer un montant.';
             if (hasMin && n < Number(data.minAmount)) return `Minimum: ${money(data.minAmount, currency)}`;
             if (hasMax && n > Number(data.maxAmount)) return `Maximum: ${money(data.maxAmount, currency)}`;
+        } else {
+            if (!(Number(data.amount) > 0)) return 'Montant manquant.';
         }
-
-        if (isMobile) {
-            const acc = getAccountNumber();
-            if (!acc) return 'Veuillez indiquer le numéro Mobile Money.';
-            if (!/^\+\d{6,15}$/.test(acc)) return 'Numéro invalide. Exemple: +243970000000';
-        }
-
+        if (isMobile && !phoneValid) return 'Numéro Mobile Money invalide.';
         if (isCrypto && !networkId) return 'Veuillez choisir un réseau (blockchain).';
         return null;
     };
 
-    const isActionableStatus = (s) =>
-        ['PENDING', 'REQUIRES_ACTION', 'INITIATED', 'NEW'].includes(String(s || '').toUpperCase());
+    const amountReady = () => (isDonation ? amountValid : Number(data.amount) > 0);
 
-    const shouldRefreshOnError = (message = '') => {
-        const m = String(message || '').toLowerCase();
-        return (
-            m.includes('expired') ||
-            m.includes('token') ||
-            m.includes('idempotency') ||
-            m.includes('idempotent') ||
-            m.includes('already exists') ||
-            m.includes('401') || m.includes('403')
-        );
+    const showContact = () => {
+        if (disabled) return false;
+        if (!methodId) return false;
+        if (isCrypto && !networkId) return false;
+        if (!amountReady()) return false;
+        return true;
     };
 
-    const prettyError = (m = '') => {
-        const s = String(m || '').toLowerCase();
-        if (s.includes('expired') || s.includes('token')) return 'Session expirée — rafraîchissons la page de paiement.';
-        if (s.includes('idempot')) return 'Conflit de requête — nouvelle tentative…';
-        return m || 'Une erreur est survenue.';
-    };
-
-    /* ---------- Token refresh helper ---------- */
+    /* ---------- token refresh ---------- */
     const refreshCheckoutToken = async () => {
         if (!publicCode) throw new Error('Code public manquant');
         const res = await fetch(`${API_BASE}/public/payment-requests/${encodeURIComponent(publicCode)}`, { cache: 'no-store' });
@@ -183,60 +132,10 @@ export default function PayForm({ data = {}, detectedCountry = 'CD', publicCode,
         return link.checkoutToken;
     };
 
-    /* ---------- Submit with auto refresh & retry ---------- */
-    const onPay = async () => {
-        if (disabled) return;
-        const v = validate();
-        if (v) { setErr(v); setCanRefresh(true); return; }
-
-        // Reset dialogs/results before a new submit
-        setShowMM(false); setShowQr(false); setResult(null);
-        setCanRefresh(false); setErr(null); setBusy(true); setStatus('pending');
-
-        const attemptOnce = async (token, idemKey) => {
-            const amountToSend = isDonation ? getDonationAmountNumber() : data.amount;
-            const body = {
-                checkoutToken: token || '',
-                paymentMethodId: methodId,
-                accountNumber: isMobile ? getAccountNumber() : undefined,
-                networkId: isCrypto ? networkId : null,
-                amount: amountToSend,
-                payerReference: getPayerEmail(),
-                payerDisplayName: getPayerName(),
-                payerAnonymous: false,
-                idempotencyKey: idemKey,
-            };
-            return http(`${API_BASE}/public/payment-requests/pay`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
-            });
-        };
-
-        const idem1 = idem();
-        try {
-            const res = await attemptOnce(checkoutToken, idem1);
-            handleSuccess(res);
-        } catch (e) {
-            if (shouldRefreshOnError(e?.message)) {
-                try {
-                    const fresh = await refreshCheckoutToken();
-                    const res2 = await attemptOnce(fresh, idem());
-                    handleSuccess(res2);
-                } catch (e2) {
-                    setErr(prettyError(e2?.message));
-                    setCanRefresh(true);
-                    setStatus('failed');
-                }
-            } else {
-                setErr(prettyError(e?.message));
-                setCanRefresh(true);
-                setStatus('failed');
-            }
-        } finally {
-            setBusy(false);
-        }
-    };
-
+    /* ---------- result handling ---------- */
     const handleSuccess = (res) => {
+        const isActionableStatus = (s) =>
+            ['PENDING', 'REQUIRES_ACTION', 'INITIATED', 'NEW'].includes(String(s || '').toUpperCase());
         const canOpen = res?.nextAction && isActionableStatus(res?.status);
 
         if (isMobile) {
@@ -265,18 +164,58 @@ export default function PayForm({ data = {}, detectedCountry = 'CD', publicCode,
         }
 
         if (String(res?.status).toUpperCase() === 'FAILED') {
-            setStatus('failed');
-            setErr('Échec du paiement.');
-            return;
+            setStatus('failed'); setErr('Échec du paiement.'); return;
         }
-        setStatus('pending'); // provider waiting for confirmation
+        setStatus('pending');
+    };
+
+    /* ---------- submit ---------- */
+    const onPay = async () => {
+        if (disabled) return;
+        const v = validate(); if (v) { setErr(v); setCanRefresh(true); return; }
+
+        setShowMM(false); setShowQr(false); setResult(null);
+        setCanRefresh(false); setErr(null); setBusy(true); setStatus('pending');
+
+        const attemptOnce = async (token, idemKey) => {
+            const amountToSend = isDonation ? getDonationAmountNumber() : data.amount;
+            const body = {
+                checkoutToken: token || '',
+                paymentMethodId: methodId,
+                accountNumber: isMobile ? getAccountNumber() : undefined,
+                networkId: isCrypto ? networkId : null,
+                amount: amountToSend,
+                payerReference: (emailRef.current?.value || '').trim() || undefined,
+                payerDisplayName: (nameRef.current?.value || '').trim() || undefined,
+                payerAnonymous: false,
+                idempotencyKey: idemKey,
+            };
+            return http(`${API_BASE}/public/payment-requests/pay`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+            });
+        };
+
+        try {
+            const res = await attemptOnce(checkoutToken, idem());
+            handleSuccess(res);
+        } catch (e) {
+            if (shouldRefreshOnError(e?.message)) {
+                try {
+                    const fresh = await refreshCheckoutToken();
+                    const res2 = await attemptOnce(fresh, idem());
+                    handleSuccess(res2);
+                } catch (e2) {
+                    setErr(prettyError(e2?.message)); setCanRefresh(true); setStatus('failed');
+                }
+            } else {
+                setErr(prettyError(e?.message)); setCanRefresh(true); setStatus('failed');
+            }
+        } finally { setBusy(false); }
     };
 
     const onRefreshAndRetry = async () => {
-        // Clear any visible success UI before retrying
         setShowMM(false); setShowQr(false); setResult(null);
         setCanRefresh(false); setErr(null); setBusy(true);
-
         try {
             const fresh = await refreshCheckoutToken();
             const res = await http(`${API_BASE}/public/payment-requests/pay`, {
@@ -288,179 +227,85 @@ export default function PayForm({ data = {}, detectedCountry = 'CD', publicCode,
                     accountNumber: isMobile ? getAccountNumber() : undefined,
                     networkId: isCrypto ? networkId : null,
                     amount: isDonation ? getDonationAmountNumber() : data.amount,
-                    payerReference: getPayerEmail(),
-                    payerDisplayName: getPayerName(),
+                    payerReference: (emailRef.current?.value || '').trim() || undefined,
+                    payerDisplayName: (nameRef.current?.value || '').trim() || undefined,
                     payerAnonymous: false,
                     idempotencyKey: idem(),
                 })
             });
             handleSuccess(res);
         } catch (e) {
-            setErr(prettyError(e?.message));
-            setCanRefresh(true);
-        } finally {
-            setBusy(false);
-        }
+            setErr(prettyError(e?.message)); setCanRefresh(true);
+        } finally { setBusy(false); }
     };
 
-    /* ---------- UI helpers (fit & stable) ---------- */
+    // show API errors (if any)
+    useEffect(() => {
+        if (methodsError) setErr(methodsError);
+        if (networksError) setErr(networksError);
+    }, [methodsError, networksError]);
 
-    const Accordion = ({ title, typeKey, children }) => {
-        const open = !!expanded[typeKey];
-        return (
-            <section className="card card--plain" style={{ background: '#fff' }}>
-                <button
-                    type="button"
-                    onClick={() => setExpanded(prev => ({ ...prev, [typeKey]: !prev[typeKey] }))}
-                    style={accordionHeaderStyle(open)}
-                    aria-expanded={open}
-                    disabled={disabled}
-                >
-                    <span className="label" style={{ fontSize: 13 }}>{title}</span>
-                    <span style={{
-                        width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        borderRadius: 8, background: open ? 'var(--brand-primary-soft)' : '#EEF2F7',
-                        border: `1px solid ${open ? 'var(--brand-primary)' : 'var(--brand-border)'}`,
-                        transition: 'transform .18s ease, background .18s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-                    }}>
-            <ChevronDown size={18} color={open ? 'var(--brand-primary)' : '#475569'} />
-          </span>
-                </button>
-                {open && <div style={{ paddingTop: 8 }}>{children}</div>}
-            </section>
-        );
-    };
-
-    const SquareGrid = ({ children }) => (
-        <div
-            style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(88px, 1fr))',
-                gap: 8,
-                width: '100%',
-            }}
-        >
-            {children}
-        </div>
-    );
-
-    const SquareTile = ({ active, onClick, logoUrl, name, logoSize = 36 }) => (
-        <button
-            onClick={onClick}
-            className="tile"
-            disabled={disabled}
-            style={{
-                borderColor: active ? 'var(--brand-primary)' : 'var(--brand-border)',
-                background: active ? 'var(--brand-primary-soft)' : '#fff',
-                borderRadius: 12,
-                width: '100%',
-                aspectRatio: '1 / 1',
-                padding: 8,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                minWidth: 0,
-                overflow: 'hidden',
-                opacity: disabled ? 0.6 : 1,
-                pointerEvents: disabled ? 'none' : 'auto',
-            }}
-        >
-            {logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt={name} style={{ width: logoSize, height: logoSize, objectFit: 'contain', borderRadius: 8 }} />
-            ) : null}
-            <span style={{
-                fontSize: 11, lineHeight: '14px', textAlign: 'center', color: '#0f172a', fontWeight: 600,
-                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', width: '100%',
-            }}>
-        {name}
-      </span>
-        </button>
-    );
-
-    const renderGroupTiles = (list, logoSize) => (
+    /* ---------- render helpers ---------- */
+    const renderGroupTiles = (typeKey, list, logoSize) => (
         <SquareGrid>
-            {list.map((m) => (
-                <SquareTile
-                    key={m.id}
-                    active={methodId === m.id}
-                    onClick={() => setMethodId(m.id)}
-                    logoUrl={m.logoUrl}
-                    name={m.name}
-                    logoSize={logoSize}
-                />
-            ))}
+            {list.map((m) => {
+                const t = String(m.type || '').toUpperCase();
+                return (
+                    <SquareTile
+                        key={m.id}
+                        active={methodId === m.id}
+                        onClick={() => {
+                            setMethodId(m.id);
+                            // DO NOT auto-toggle accordions.
+                            // If the user is in Mobile Money and clicks a tile, we can gently focus the phone field.
+                            if (typeKey === 'MOBILE_MONEY') setTimeout(() => phoneRef.current?.focus?.(), 0);
+                        }}
+                        logoUrl={m.logoUrl}
+                        name={m.name}
+                        logoSize={logoSize}
+                        disabled={disabled}
+                    />
+                );
+            })}
         </SquareGrid>
     );
 
-    /* ---------- Networks (checkbox pills) ---------- */
-    const NetworkPills = ({ items, selectedId, onSelect }) => {
-        if (!items?.length) return null;
-        const dim = disabled ? { opacity: 0.6, pointerEvents: 'none' } : undefined;
-        return (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, ...dim }}>
-                {items.map((n) => {
-                    const active = n.id === selectedId;
-                    return (
-                        <button
-                            key={n.id}
-                            type="button"
-                            onClick={() => onSelect(n.id)}
-                            disabled={disabled}
-                            style={{
-                                display: 'inline-flex', alignItems: 'center', gap: 8,
-                                border: `1px solid ${active ? 'var(--brand-primary)' : 'var(--brand-border)'}`,
-                                background: active ? 'var(--brand-primary-soft)' : '#fff',
-                                color: active ? 'var(--brand-primary)' : '#0f172a',
-                                padding: '10px 12px',
-                                borderRadius: 999,
-                                fontWeight: 700,
-                                fontSize: 13,
-                            }}
-                        >
-              <span
-                  aria-hidden
-                  style={{
-                      width: 16, height: 16, borderRadius: 4,
-                      border: `2px solid ${active ? 'var(--brand-primary)' : '#CBD5E1'}`,
-                      background: active ? 'var(--brand-primary)' : '#fff',
-                  }}
-              />
-                            {n.displayName || n.name}
-                        </button>
-                    );
-                })}
-            </div>
-        );
-    };
-
-    /* ---------- Render ---------- */
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, ...(disabled ? { opacity: 0.95 } : null) }}>
             {/* Amount */}
             {isDonation ? (
                 <section className="card" style={disabled ? { opacity: 0.6, pointerEvents: 'none' } : undefined}>
-                    <label className="label">Montant</label>
+                    <label className="label">How much do you want to pay</label>
+
                     {!!(Array.isArray(data.presets) && data.presets.length) && (
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                             {data.presets.map((p, i) => (
-                                <button key={`${p}-${i}`} onClick={() => { if (amountRef.current) amountRef.current.value = String(p); }} className="chip">
+                                <button
+                                    key={`${p}-${i}`}
+                                    onClick={() => {
+                                        if (amountRef.current) amountRef.current.value = String(p);
+                                        setAmountValid(Number(p) > 0);
+                                    }}
+                                    className="chip"
+                                >
                                     {money(p, currency)}
                                 </button>
                             ))}
                         </div>
                     )}
+
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, minWidth: 0 }}>
                         <input
                             ref={amountRef}
                             inputMode="decimal"
                             type="tel"
                             className="input"
-                            defaultValue={defaultDonationAmount}
-                            placeholder={`Ex: ${data.minAmount ?? 0}`}
+                            placeholder="0"
                             style={{ flex: 1, minWidth: 0, fontSize: 16 }}
+                            onInput={(e) => {
+                                const n = Number(String(e.currentTarget.value || '').replace(',', '.'));
+                                setAmountValid(Number.isFinite(n) && n > 0);
+                            }}
                             disabled={disabled}
                         />
                         <span style={{ fontSize: 14, color: 'var(--brand-muted)', whiteSpace: 'nowrap' }}>{currency}</span>
@@ -475,17 +320,17 @@ export default function PayForm({ data = {}, detectedCountry = 'CD', publicCode,
                 </section>
             )}
 
-            {/* Caption above methods */}
+            {/* Methods header */}
             <div className="label" style={{ marginTop: 2 }}>
                 How do you want to pay?
                 {disabledReason && (
-                    <span style={{ display:'block', color:'#64748B', fontSize:12, marginTop:4 }}>
+                    <span style={{ display: 'block', color: '#64748B', fontSize: 12, marginTop: 4 }}>
             {disabledReason}
           </span>
                 )}
             </div>
 
-            {/* Accordions per group (wrapped to disable all interactions when blocked) */}
+            {/* Accordions — all collapsed by default; only user click toggles them */}
             <div style={disabled ? { opacity: 0.6, pointerEvents: 'none' } : undefined}>
                 {GROUP_ORDER.map((t) => {
                     const list = grouped[t];
@@ -493,19 +338,39 @@ export default function PayForm({ data = {}, detectedCountry = 'CD', publicCode,
                     const logoSize = 36;
 
                     return (
-                        <Accordion key={t} title={labelForType(t)} typeKey={t}>
-                            {renderGroupTiles(list, logoSize)}
+                        <Accordion
+                            key={t}
+                            title={labelForType(t)}
+                            typeKey={t}
+                            open={!!expanded[t]}
+                            onToggle={onToggleAccordion}
+                            disabled={disabled}
+                        >
+                            {renderGroupTiles(t, list, logoSize)}
 
-                            {/* Mobile phone input directly under MM */}
-                            {t === 'MOBILE_MONEY' && isMobile && (
-                                <MobilePhoneField callingCode={callingCode} ref={phoneRef} />
+                            {/* Mobile phone field stays mounted only inside MOBILE_MONEY section */}
+                            {t === 'MOBILE_MONEY' && (
+                                <div style={{ marginTop: 8, opacity: isMobile ? 1 : 0.5, pointerEvents: isMobile ? 'auto' : 'none' }}>
+                                    <MobilePhoneField
+                                        callingCode={callingCode}
+                                        ref={phoneRef}
+                                        value={phoneDigits}
+                                        onChangeDigits={(digits) => {
+                                            const only = String(digits || '').replace(/\D+/g, '');
+                                            setPhoneDigits(only);
+                                            const e164 = buildE164(only);
+                                            setPhoneValid(/^\+\d{6,15}$/.test(e164));
+                                        }}
+                                        disabled={!isMobile}
+                                    />
+                                </div>
                             )}
 
-                            {/* Crypto networks directly under Crypto, styled as checkbox pills */}
+                            {/* Crypto networks */}
                             {t === 'CRYPTO' && isCrypto && (
                                 <div style={{ marginTop: 10 }}>
                                     <label className="label" style={{ marginBottom: 6 }}>Réseau</label>
-                                    <NetworkPills items={networks} selectedId={networkId} onSelect={setNetworkId} />
+                                    <NetworkPills items={networks} selectedId={networkId} onSelect={setNetworkId} disabled={disabled} />
                                 </div>
                             )}
                         </Accordion>
@@ -513,45 +378,35 @@ export default function PayForm({ data = {}, detectedCountry = 'CD', publicCode,
                 })}
             </div>
 
-            {/* Optional contact details */}
-            <section className="card card--plain" style={{ background: '#fff', ...(disabled ? { opacity: 0.6, pointerEvents: 'none' } : null) }}>
-                <div style={{ display: 'flex', gap: 8, minWidth: 0 }}>
-                    <input ref={nameRef}  className="input" placeholder="Nom (optionnel)"   style={{ flex: 1, minWidth: 0 }} disabled={disabled} />
-                    <input ref={emailRef} className="input" placeholder="Email (optionnel)" style={{ flex: 1, minWidth: 0 }} disabled={disabled} />
-                </div>
-            </section>
-
-            {/* Result cards + modals */}
-            {result && result.rail === 'MM' && (
-                <>
-                    <ResultCardMobile number={result.number} hint={result.hint} />
-                    <MobileMoneyModal
-                        open={showMM}
-                        onClose={() => setShowMM(false)}
-                        number={result.number}
-                        hint={result.hint}
-                        onRefresh={onRefreshAndRetry}
-                    />
-                </>
+            {/* Contact details */}
+            {showContact() && (
+                <section className="card card--plain" style={{ background: '#fff' }}>
+                    <div style={{ display: 'flex', gap: 8, minWidth: 0 }}>
+                        <input ref={nameRef}  className="input" placeholder="Nom (optionnel)"   style={{ flex: 1, minWidth: 0 }} />
+                        <input ref={emailRef} className="input" placeholder="Email (optionnel)" style={{ flex: 1, minWidth: 0 }} />
+                    </div>
+                </section>
             )}
-            {result && result.rail === 'CRYPTO' && (
-                <>
-                    <ResultCardCrypto
-                        address={result.address}
-                        amount={result.amount}
-                        networkName={result.networkName}
-                        hint={result.hint}
-                        onOpenQr={() => setShowQr(true)}
-                    />
-                    <CryptoQrModal
-                        open={showQr}
-                        onClose={() => setShowQr(false)}
-                        address={result.address}
-                        amount={result.amount}
-                        networkName={result.networkName}
-                        hint={result.hint}   // provider instruction at the top
-                    />
-                </>
+
+            {/* Modals */}
+            {result?.rail === 'MM' && (
+                <MobileMoneyModal
+                    open={showMM}
+                    onClose={() => setShowMM(false)}
+                    number={result.number}
+                    hint={result.hint}
+                    onRefresh={onRefreshAndRetry}
+                />
+            )}
+            {result?.rail === 'CRYPTO' && (
+                <CryptoQrModal
+                    open={showQr}
+                    onClose={() => setShowQr(false)}
+                    address={result.address}
+                    amount={result.amount}
+                    networkName={result.networkName}
+                    hint={result.hint}
+                />
             )}
 
             {/* Errors */}
@@ -573,8 +428,14 @@ export default function PayForm({ data = {}, detectedCountry = 'CD', publicCode,
             <button
                 className="btn btn--primary"
                 onClick={onPay}
-                disabled={busy || disabled}
-                style={{ opacity: (busy || disabled) ? .6 : 1 }}
+                disabled={
+                    busy || disabled ||
+                    !methodId ||
+                    (isCrypto && !networkId) ||
+                    !amountReady() ||
+                    (isMobile && !phoneValid)
+                }
+                style={{ opacity: (busy || disabled || !methodId || (isCrypto && !networkId) || !amountReady() || (isMobile && !phoneValid)) ? .6 : 1 }}
             >
                 {busy ? 'Traitement…' : 'Payer maintenant'}
             </button>
@@ -584,297 +445,5 @@ export default function PayForm({ data = {}, detectedCountry = 'CD', publicCode,
             {status === 'succeeded' && <p className="note" style={{ color:'#16a34a' }}>Paiement reçu. Merci !</p>}
             {status === 'failed'    && <p className="note" style={{ color:'#dc2626' }}>Paiement échoué. Essayez une autre méthode.</p>}
         </div>
-    );
-}
-
-/* ------- Result cards & modals ------- */
-
-function ResultCardMobile({ number, hint }) {
-    return (
-        <section className="card card--plain" style={{ borderColor: 'var(--brand-border)' }}>
-            <h3 className="card-title">Confirmez sur votre téléphone</h3>
-            <p className="p-muted" style={{ marginTop: 6 }}>
-                Une demande de paiement a été envoyée à <strong style={{ color: 'var(--brand-primary)' }}>{number}</strong>.
-                Ouvrez l’app Mobile Money et validez.
-            </p>
-            {hint && <p className="p-muted" style={{ fontSize: 12, marginTop: 6 }}>{hint}</p>}
-        </section>
-    );
-}
-
-function MobileMoneyModal({ open, onClose, number, hint, onRefresh }) {
-    if (!open) return null;
-    return (
-        <div
-            role="dialog"
-            aria-modal="true"
-            style={{
-                position: 'fixed', inset: 0, zIndex: 9999,
-                background: 'rgba(0,0,0,0.75)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: 16,
-            }}
-            onClick={onClose}
-        >
-            <div
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                    width: '100%', maxWidth: 420, borderRadius: 16, background: '#fff',
-                    padding: 16, boxShadow: '0 20px 40px rgba(0,0,0,0.35)',
-                }}
-            >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 className="card-title" style={{ margin: 0 }}>Confirmez sur votre téléphone</h3>
-                    <button onClick={onClose} className="tile" style={{ padding: '6px 10px' }}>Fermer</button>
-                </div>
-
-                <div style={{ marginTop: 12 }}>
-                    <p className="p-muted">
-                        Nous avons envoyé une demande de paiement à&nbsp;
-                        <strong style={{ color: 'var(--brand-primary)' }}>{number}</strong>.
-                        Ouvrez votre application Mobile Money et validez l’opération.
-                    </p>
-                    {hint && <p className="p-muted" style={{ fontSize: 12, marginTop: 6 }}>{hint}</p>}
-
-                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                        <button className="tile" onClick={onRefresh} style={{ padding: '8px 10px' }}>
-                            Renvoyer / Rafraîchir
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function ResultCardCrypto({ address, amount, networkName, hint, onOpenQr }) {
-    return (
-        <section className="card card--plain" style={{ borderColor: 'var(--brand-border)' }}>
-            <h3 className="card-title">Envoyer la crypto</h3>
-            <p className="p-muted" style={{ marginTop: 6 }}>
-                Envoyez <strong style={{ color: 'var(--brand-primary)' }}>{amount}</strong> via le réseau <strong style={{ color: 'var(--brand-primary)' }}>{networkName}</strong>.
-            </p>
-            <div style={{ marginTop: 8 }}>
-                <div className="label" style={{ marginBottom: 4 }}>Adresse</div>
-                <div
-                    style={{
-                        border: '1px solid var(--brand-border)', borderRadius: 10, padding: '10px 12px',
-                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13,
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                    }}
-                    title={address}
-                >
-                    {address || '—'}
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                    <button className="tile" onClick={() => copyToClipboard(address)} style={{ padding: '8px 10px' }}>
-                        Copier l’adresse
-                    </button>
-                    <button className="tile" onClick={onOpenQr} style={{ padding: '8px 10px' }}>
-                        Afficher le QR
-                    </button>
-                </div>
-            </div>
-            {hint && (
-                <div
-                    style={{
-                        marginTop: 8,
-                        border: '1px solid var(--brand-border)',
-                        background: 'var(--brand-primary-soft-2)',
-                        borderRadius: 10,
-                        padding: '8px 10px',
-                        color: '#0f172a',
-                        fontWeight: 700,
-                        fontSize: 13,
-                    }}
-                >
-                    {hint}
-                </div>
-            )}
-        </section>
-    );
-}
-
-function CryptoQrModal({ open, onClose, address, amount, networkName, hint }) {
-    if (!open) return null;
-    return (
-        <div
-            role="dialog"
-            aria-modal="true"
-            style={{
-                position: 'fixed', inset: 0, zIndex: 9999,
-                background: 'rgba(0,0,0,0.75)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: 16,
-            }}
-            onClick={onClose}
-        >
-            <div
-                onClick={(e) => e.stopPropagation()}
-                style={{
-                    width: '100%', maxWidth: 420, borderRadius: 16, background: '#fff',
-                    padding: 16, boxShadow: '0 20px 40px rgba(0,0,0,0.35)',
-                }}
-            >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 className="card-title" style={{ margin: 0 }}>Adresse de paiement</h3>
-                    <button onClick={onClose} className="tile" style={{ padding: '6px 10px' }}>Fermer</button>
-                </div>
-
-                {hint && (
-                    <div
-                        style={{
-                            marginTop: 10,
-                            border: '1px solid var(--brand-border)',
-                            background: 'var(--brand-primary-soft-2)',
-                            borderRadius: 10,
-                            padding: '8px 10px',
-                            color: '#0f172a',
-                            fontWeight: 700,
-                            fontSize: 13,
-                        }}
-                    >
-                        {hint}
-                    </div>
-                )}
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', marginTop: 12 }}>
-                    <QRCanvas text={address || ''} size={240} />
-
-                    <div style={{ textAlign: 'center', width: '100%' }}>
-                        <div className="label" style={{ marginBottom: 6 }}>Réseau</div>
-                        <div style={{ fontWeight: 800, marginBottom: 10 }}>{networkName || '—'}</div>
-
-                        <div className="label" style={{ marginBottom: 6 }}>Montant</div>
-                        <div style={{ fontWeight: 800, marginBottom: 10 }}>{amount ?? '—'}</div>
-
-                        <div className="label" style={{ marginBottom: 6 }}>Adresse</div>
-                        <div
-                            style={{
-                                border: '1px solid var(--brand-border)', borderRadius: 10, padding: '10px 12px',
-                                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 13,
-                                maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis'
-                            }}
-                            title={address}
-                        >
-                            {address || '—'}
-                        </div>
-                        <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'center' }}>
-                            <button className="tile" onClick={() => copyToClipboard(address)} style={{ padding: '8px 10px' }}>
-                                Copier l’adresse
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-    );
-}
-
-/* ------- memoized subcomponents & helpers ------- */
-
-const MobilePhoneField = memo(forwardRef(function MobilePhoneField({ callingCode }, inputRef) {
-    const [localDigits, setLocalDigits] = useState('');
-    return (
-        <div style={{ marginTop: 10 }}>
-            <label className="label" style={{ marginBottom: 8 }}>Téléphone Mobile Money</label>
-            <div style={{ display: 'flex', gap: 8, minWidth: 0 }}>
-                <input
-                    className="input"
-                    style={{ width: 110, flex: '0 0 auto', color: '#0f172a', background: '#F8FAFC', fontSize: 16 }}
-                    value={`+${callingCode}`}
-                    readOnly
-                    aria-label="Indicatif pays"
-                />
-                <input
-                    ref={inputRef}
-                    className="input"
-                    type="tel"
-                    inputMode="numeric"
-                    defaultValue=""
-                    onInput={(e) => setLocalDigits(String(e.currentTarget.value || '').replace(/\D+/g, ''))}
-                    placeholder="Numéro (ex: 970000000)"
-                    style={{ flex: 1, minWidth: 0, fontSize: 16 }}
-                />
-            </div>
-            <p className="p-muted" style={{ marginTop: 6, fontSize: 12 }}>
-                Format attendu: +{callingCode}{localDigits || '970000000'}
-            </p>
-        </div>
-    );
-}));
-
-/* --------------------------- Local QR generator --------------------------- */
-function QRCanvas({ text = '', size = 240 }) {
-    const canvasRef = useRef(null);
-    useEffect(() => {
-        let mounted = true;
-        (async () => {
-            if (!canvasRef.current || !text) return;
-            const QR = await import('qrcode'); // npm i qrcode
-            if (!mounted) return;
-            await QR.toCanvas(canvasRef.current, text, {
-                errorCorrectionLevel: 'M',
-                margin: 2,
-                width: size,
-                color: { dark: '#000000', light: '#ffffff' },
-            });
-        })();
-        return () => { mounted = false; };
-    }, [text, size]);
-    return <canvas ref={canvasRef} style={{ width: size, height: size }} />;
-}
-
-/* --------------------------- helpers & icons --------------------------- */
-
-const accordionHeaderStyle = (open) => ({
-    width: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '10px 12px',
-    border: '1px solid var(--brand-border)',
-    borderRadius: 12,
-    background: open ? 'var(--brand-primary-soft)' : 'var(--brand-primary-soft-2)',
-    cursor: 'pointer',
-    transition: 'background .18s',
-    outline: 'none',
-});
-
-function labelForType(t) {
-    switch (t) {
-        case 'MOBILE_MONEY': return 'Mobile Money';
-        case 'CRYPTO':       return 'Crypto';
-        case 'CARD':         return 'Carte';
-        case 'BANK_TRANSFER':return 'Virement';
-        case 'WALLET':       return 'Portefeuille';
-        default:             return 'Autres';
-    }
-}
-
-function mapIsoToCallingCode(iso2) {
-    const map = { CD:'243', CG:'242', CM:'237', RW:'250', BI:'257', KE:'254', TZ:'255', UG:'256', ZM:'260', ZW:'263', GA:'241', AO:'244' };
-    return map[(iso2 || '').toUpperCase()];
-}
-
-// Parse helper — e.g. "Send 0.00008200 BTC via network BTC"
-function parseCryptoHint(text) {
-    try {
-        const amtMatch = text.match(/send\s+([\d.]+\s*\w+)/i);
-        const netMatch = text.match(/network\s+([\w-]+)/i);
-        return { amount: amtMatch?.[1] || null, network: netMatch?.[1] || null };
-    } catch { return {}; }
-}
-
-async function copyToClipboard(text) {
-    try { await navigator.clipboard.writeText(text || ''); } catch {}
-}
-
-function ChevronDown({ size = 18, color = '#475569' }) {
-    return (
-        <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 9l6 6 6-6" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
     );
 }

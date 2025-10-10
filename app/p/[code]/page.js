@@ -248,8 +248,8 @@ function HeaderLogo() {
                         fontWeight: 900,
                         letterSpacing: 0.3,
                         color: 'var(--brand-primary)',
-                        fontSize: 16,
-                        lineHeight: '16px',
+                        fontSize: 24,
+                        lineHeight: '24px',
                     }}
                 >
                     Fondeka

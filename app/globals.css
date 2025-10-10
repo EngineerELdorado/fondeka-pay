@@ -1,60 +1,131 @@
-/* app/globals.css */
+/* app/globals.css – Typography tune for mobile */
 
-/* ==== Brand tokens ==== */
-:root {
-    --brand-primary: #4F805C;
-    --brand-primary-soft: #E9F3EC;
-    --brand-primary-soft-2: #F3F8F5;
-    --brand-accent: #85A38D;
+/* Brand tokens (as you already had) */
+:root{
+    --brand-primary:#4F805C;
+    --brand-primary-soft:#E9F3EC;
+    --brand-primary-soft-2:#F3F8F5;
+    --brand-text:#0f172a;
+    --brand-muted:#64748B;
+    --brand-border:#E5E7EB;
+    --container-max:420px;
 
-    --brand-text: #0f172a;
-    --brand-muted: #64748B;
-    --brand-border: #E5E7EB;
-
-    --container-max: 420px;
+    /* Fluid type scale (desktop-ish defaults) */
+    --font-xs: 12px;
+    --font-s:  14px;
+    --font-m:  16px;
+    --font-l:  18px;
+    --font-xl: 22px;
+    --font-xxl:26px;
 }
 
-/* Base / layout */
-* { box-sizing: border-box; }
-html, body, #__next, main { width: 100%; }
-html, body { height: 100%; overflow-x: hidden; } /* prevent horizontal scroll */
-body {
-    margin: 0;
-    color: var(--brand-text);
-    background: #fff;
+/* iOS text zoom guard + no horizontal scroll */
+html { -webkit-text-size-adjust: 100%; }
+html,body{ overflow-x:hidden; }
+
+/* Base – keep comfortable default */
+body{
     font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+    font-size: var(--font-m);
+    color: var(--brand-text);
+    background:#fff;
+    margin:0;
+    padding-left: 10px;
+    padding-right: 10px;
 }
 
-.page { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; }
-.wrap { width: 100%; max-width: var(--container-max); padding: 16px; padding-bottom: 80px; overflow-x: hidden; }
+/* Wrap width */
+.page { min-height:100dvh; display:flex; flex-direction:column; align-items:center; }
+.wrap{
+    width: 100%;
+    max-width: var(--container-max);
 
-/* Media should never overflow horizontally */
-img, video, iframe { max-width: 100%; height: auto; display: block; }
+    /* Horizontal padding that respects iPhone safe areas */
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
 
-/* Brand header */
-.brand-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.brand-logo { width: 28px; height: 28px; border-radius: 8px; background: var(--brand-primary); }
-.brand-name { font-weight: 900; letter-spacing: .3px; color: var(--brand-primary); }
+    /* Keep comfortable top/bottom spacing */
+    padding-top: 16px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom)); /* avoids hugging the home indicator */
+}
 
-/* Card */
-.card { border: 1px solid var(--brand-border); border-radius: 16px; padding: 14px; background: var(--brand-primary-soft-2); margin-bottom: 12px; overflow: hidden; }
-.card--plain { background: #fff; }
-.card-title { margin: 0; font-size: 14px; color: #334155; font-weight: 700; }
+/* Text atoms (use these everywhere) */
+.h1{ font-weight:900; font-size: var(--font-xl); margin:0; }
+.card-title{ font-weight:700; font-size: var(--font-l); margin:0; }
+.label{ font-weight:700; font-size: var(--font-s); color:var(--brand-muted); }
+.p-muted{ color:var(--brand-muted); font-size: var(--font-s); margin-top:6px; }
+.err{ color:#dc2626; font-size: var(--font-s); margin:0; }
+.note{ color:var(--brand-muted); font-size: var(--font-s); margin-top:8px; }
 
-/* Labels / inputs */
-.label { font-size: 12px; color: var(--brand-muted); font-weight: 700; }
-.input { width: 100%; border: 1px solid var(--brand-border); border-radius: 12px; padding: 10px 12px; font-size: 14px; background: #fff; min-width: 0; }
+/* Inputs/buttons: keep 16px to prevent iOS zoom */
+.input{
+    width:100%; min-width:0;
+    border:1px solid var(--brand-border); border-radius:12px;
+    padding:10px 12px; font-size:16px; background:#fff;
+}
+.btn{ height:52px; border-radius:14px; border:none; font-weight:900; letter-spacing:.3px; }
+.btn--primary{ width:100%; background:var(--brand-primary); color:#fff; box-shadow:0 6px 18px rgba(79,128,92,.25); }
 
-/* Tiles / Chips */
-.tile { border: 1px solid var(--brand-border); border-radius: 12px; padding: 10px 12px; font-size: 14px; background: #fff; color: var(--brand-text); font-weight: 600; }
-.tile--active { border-color: var(--brand-primary); background: var(--brand-primary-soft); }
-.chip { padding: 6px 10px; border-radius: 999px; border: 1px solid var(--brand-border); background: #fff; font-size: 14px; }
-.chip--active { border-color: var(--brand-primary); background: var(--brand-primary-soft); }
+/* Cards/tiles (unchanged) */
+.card{ border:1px solid var(--brand-border); border-radius:16px; padding:14px; background:var(--brand-primary-soft-2); margin-bottom:12px; }
+.card--plain{ background:#fff; }
+.tile{ border:1px solid var(--brand-border); border-radius:12px; padding:10px 12px; background:#fff; font-weight:600; }
 
-/* CTA */
-.btn { height: 50px; border-radius: 14px; border: none; font-weight: 900; letter-spacing: .3px; }
-.btn--primary { width: 100%; background: var(--brand-primary); color: #fff; box-shadow: 0 6px 18px rgba(79,128,92,.25); }
-.note { color: var(--brand-muted); font-size: 12px; margin-top: 8px; }
-.h1 { margin: 0; font-size: 22px; font-weight: 900; }
-.p-muted { margin-top: 6px; color: var(--brand-muted); font-size: 14px; }
-.err { color: #dc2626; font-size: 13px; margin: 0; }
+/* ——— Mobile bump: increase minimum sizes on narrow screens ——— */
+@media (max-width: 480px){
+    :root{
+        /* Lift the floor so “12px” text becomes 14–15px */
+        --font-xs: 14px;
+        --font-s:  15px;
+        --font-m:  16px; /* keep inputs at 16px */
+        --font-l:  17px;
+        --font-xl: 22px;
+        --font-xxl:26px;
+    }
+    .h1{ font-size: clamp(20px, 6.2vw, 24px); }
+    .card-title{ font-size: clamp(16px, 4.6vw, 18px); }
+    .label, .p-muted, .err, .note{ font-size: var(--font-s); }
+    .tile{ padding: 12px 14px; }
+    .wrap{
+        padding-left: max(18px, env(safe-area-inset-left));
+        padding-right: max(18px, env(safe-area-inset-right));
+    }
+}
+
+@media (min-width: 600px){
+    .wrap{
+        padding-left: max(20px, env(safe-area-inset-left));
+        padding-right: max(20px, env(safe-area-inset-right));
+    }
+}
+
+/* ---- Chips (presets) ---- */
+.chip{
+    -webkit-appearance: none;
+    appearance: none;
+    outline: none;
+    border: 1px solid var(--brand-border);
+    background: #fff;
+    color: var(--brand-text);
+    font-weight: 700;
+    font-size: var(--font-m); /* comfortable on mobile */
+    padding: 8px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    user-select: none;
+    transition: background .15s, border-color .15s, color .15s, box-shadow .15s;
+}
+.chip:focus-visible{
+    box-shadow: 0 0 0 3px rgba(79,128,92,.2);
+}
+.chip:active{
+    transform: translateY(0.5px);
+}
+.chip--active{
+    border-color: var(--brand-primary);
+    background: var(--brand-primary-soft);
+    color: var(--brand-primary);
+}
+@media (max-width:480px){
+    .chip{ padding: 10px 14px; font-size: 15px; }
+}
