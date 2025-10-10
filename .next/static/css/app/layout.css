@@ -19,6 +19,7 @@
 
 /* Base / layout */
 * { box-sizing: border-box; }
+html, body, #__next, main { width: 100%; }
 html, body { height: 100%; overflow-x: hidden; } /* prevent horizontal scroll */
 body {
     margin: 0;
@@ -28,7 +29,7 @@ body {
 }
 
 .page { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; }
-.wrap { width: 100%; max-width: var(--container-max); padding: 16px; padding-bottom: 80px; }
+.wrap { width: 100%; max-width: var(--container-max); padding: 16px; padding-bottom: 80px; overflow-x: hidden; }
 
 /* Media should never overflow horizontally */
 img, video, iframe { max-width: 100%; height: auto; display: block; }
@@ -52,9 +53,6 @@ img, video, iframe { max-width: 100%; height: auto; display: block; }
 .tile--active { border-color: var(--brand-primary); background: var(--brand-primary-soft); }
 .chip { padding: 6px 10px; border-radius: 999px; border: 1px solid var(--brand-border); background: #fff; font-size: 14px; }
 .chip--active { border-color: var(--brand-primary); background: var(--brand-primary-soft); }
-
-/* Grid helper (note: payform overrides with auto-fill) */
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; grid-gap: 8px; gap: 8px; }
 
 /* CTA */
 .btn { height: 50px; border-radius: 14px; border: none; font-weight: 900; letter-spacing: .3px; }

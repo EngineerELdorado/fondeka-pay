@@ -6,6 +6,8 @@ import ReadMore from './readmore';
 import { notFound } from 'next/navigation';
 import { cookies, headers } from 'next/headers';
 
+/* ------------------------- data fetching & helpers ------------------------- */
+
 async function fetchPublicLink(code) {
     try {
         const res = await fetch(`${API_BASE}/public/payment-requests/${code}`, { cache: 'no-store' });
@@ -40,6 +42,7 @@ function normalizeData(d) {
     };
 }
 const toNum = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
+
 const getYouTubeId = (url) => {
     if (!url) return null;
     try {
@@ -50,10 +53,15 @@ const getYouTubeId = (url) => {
     } catch { return null; }
 };
 
+/* ---------------------------------- page ---------------------------------- */
+
 export default async function Page({ params }) {
     const raw = await fetchPublicLink(params.code);
+
+    // 404 → Next.js not-found page
     if (raw === null) notFound();
 
+    // Soft error UI (no event handlers in server component)
     if (raw?.__error) {
         const retryHref = `/p/${encodeURIComponent(params.code)}`;
         return (
@@ -63,6 +71,7 @@ export default async function Page({ params }) {
                         <div className="brand-logo" />
                         <div className="brand-name">Fondeka</div>
                     </div>
+
                     <section className="card card--plain" style={{ borderColor: '#FECACA', background: '#FEF2F2' }}>
                         <h1 className="h1" style={{ fontSize: 18, marginBottom: 6 }}>Oups…</h1>
                         <p className="p-muted" style={{ color: '#991B1B' }}>{raw.__error || 'Une erreur est survenue.'}</p>
@@ -76,10 +85,12 @@ export default async function Page({ params }) {
         );
     }
 
+    /* Normalize & derive rendering flags */
     const data = normalizeData(raw);
     const isDonation = data.type === 'DONATION';
     const isInvoice  = data.type === 'INVOICE';
 
+    /* Country detection (from CDN headers via middleware cookie; fallback to headers; then ‘CD’) */
     const ck = cookies();
     let countryIso = ck.get('country_iso')?.value?.toUpperCase();
     if (!countryIso) {
@@ -91,22 +102,24 @@ export default async function Page({ params }) {
     }
     const detectedCountry = countryIso || 'CD';
 
+    /* Donation media */
     const ytId = getYouTubeId(data?.metadata?.youtubeUrl);
     const cover = data.image1 || null;
     const otherImages = [data.image2, data.image3, data.image4, data.image5].filter(Boolean);
+
+    /* Invoice items */
     const items = data.items;
     const sumItems = items.reduce((s, it) => s + Number(it.lineTotal || 0), 0);
-
-    const creatorDisplay = (data.creator || '').trim();
 
     return (
         <main className="page">
             <div className="wrap">
                 <div className="brand-header">
                     <div className="brand-logo" />
-                    <div className="brand-name">{creatorDisplay || 'Fondeka'}</div>
+                    <div className="brand-name">{(data.creator || '').trim() || 'Fondeka'}</div>
                 </div>
 
+                {/* Header (keep donation header concise; story shown later after media) */}
                 <header style={{ marginBottom: 6 }}>
                     <h1 className="h1">{data.title || (isInvoice ? 'Facture' : isDonation ? 'Collecte' : 'Paiement')}</h1>
                     {!isDonation && data.description && (
@@ -114,6 +127,7 @@ export default async function Page({ params }) {
                     )}
                 </header>
 
+                {/* Donation: media-first (no event handlers here; clicks handled in client component) */}
                 {isDonation && (
                     <LightboxClient
                         ytId={ytId}
@@ -124,6 +138,7 @@ export default async function Page({ params }) {
                     />
                 )}
 
+                {/* Invoice: items summary above form */}
                 {isInvoice && items.length > 0 && (
                     <section className="card card--plain">
                         <h3 className="card-title">Détail</h3>
@@ -151,6 +166,7 @@ export default async function Page({ params }) {
                     </section>
                 )}
 
+                {/* Shared pay form (client component) */}
                 <PayForm data={data} detectedCountry={detectedCountry} />
             </div>
         </main>

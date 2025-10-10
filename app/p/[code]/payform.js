@@ -160,14 +160,21 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
         );
     };
 
-    // Fit-to-width grid: tiles wrap automatically; never force 3 columns if too narrow
+    // Fit-to-width grid: tiles wrap automatically on narrow phones
     const SquareGrid = ({ children }) => (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))', gap: 10 }}>
+        <div
+            style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(88px, 1fr))',
+                gap: 8,
+                width: '100%',
+            }}
+        >
             {children}
         </div>
     );
 
-    const SquareTile = ({ active, onClick, logoUrl, name, logoSize = 40 }) => (
+    const SquareTile = ({ active, onClick, logoUrl, name, logoSize = 36 }) => (
         <button
             onClick={onClick}
             className="tile"
@@ -177,22 +184,23 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                 borderRadius: 12,
                 width: '100%',
                 aspectRatio: '1 / 1',
-                padding: 10,
+                padding: 8,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 8,
+                gap: 6,
                 minWidth: 0,
+                overflow: 'hidden',
             }}
         >
             {logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt={name} style={{ width: logoSize, height: logoSize, objectFit: 'cover', borderRadius: 10 }} />
+                <img src={logoUrl} alt={name} style={{ width: logoSize, height: logoSize, objectFit: 'contain', borderRadius: 8 }} />
             ) : null}
             <span style={{
                 fontSize: 11, lineHeight: '14px', textAlign: 'center', color: '#0f172a', fontWeight: 600,
-                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', width: '100%',
             }}>
         {name}
       </span>
@@ -232,7 +240,7 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                             ))}
                         </div>
                     )}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, minWidth: 0 }}>
                         <input
                             inputMode="decimal"
                             className="input"
@@ -252,7 +260,7 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
             ) : (
                 <section className="card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minWidth: 0 }}>
-                        <span className="label"> {type === 'INVOICE' ? 'Total à payer' : 'Montant'} </span>
+                        <span className="label">{type === 'INVOICE' ? 'Total à payer' : 'Montant'}</span>
                         <strong style={{ fontSize: 16, whiteSpace: 'nowrap' }}>{money(data.amount, currency)}</strong>
                     </div>
                 </section>
@@ -265,7 +273,7 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
             {GROUP_ORDER.map((t) => {
                 const list = grouped[t];
                 if (!list?.length) return null;
-                const logoSize = 40;
+                const logoSize = 36; // compact to fit small phones
 
                 return (
                     <Accordion key={t} title={labelForType(t)} typeKey={t}>
@@ -275,8 +283,8 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                         {t === 'MOBILE_MONEY' && isMobile && (
                             <div style={{ marginTop: 10 }}>
                                 <label className="label" style={{ marginBottom: 8 }}>Téléphone Mobile Money</label>
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                    <input className="input" style={{ maxWidth: 120, color: '#0f172a', background: '#F8FAFC' }} value={`+${callingCode}`} readOnly aria-label="Indicatif pays" />
+                                <div style={{ display: 'flex', gap: 8, minWidth: 0 }}>
+                                    <input className="input" style={{ width: 110, flex: '0 0 auto', color: '#0f172a', background: '#F8FAFC' }} value={`+${callingCode}`} readOnly aria-label="Indicatif pays" />
                                     <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="numeric" placeholder="Numéro (ex: 970000000)" style={{ flex: 1, minWidth: 0 }} />
                                 </div>
                                 <p className="p-muted" style={{ marginTop: 6, fontSize: 12 }}>
