@@ -275,7 +275,7 @@ export default function PayForm({
             {/* Amount */}
             {isDonation ? (
                 <section className="card" style={disabled ? { opacity: 0.6, pointerEvents: 'none' } : undefined}>
-                    <label className="label">How much do you want to pay</label>
+                    <label className="label">How much do you want to send</label>
 
                     {!!(Array.isArray(data.presets) && data.presets.length) && (
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
@@ -349,22 +349,20 @@ export default function PayForm({
                             {renderGroupTiles(t, list, logoSize)}
 
                             {/* Mobile phone field stays mounted only inside MOBILE_MONEY section */}
-                            {t === 'MOBILE_MONEY' && (
-                                <div style={{ marginTop: 8 }}>
-                                    <MobilePhoneField
-                                        callingCode={callingCode}
-                                        ref={phoneRef}
-                                        value={phoneDigits}
-                                        onChangeDigits={(digits) => {
-                                            const only = String(digits || '').replace(/\D+/g, '');
-                                            setPhoneDigits(only);
-                                            const e164 = buildE164(only);
-                                            setPhoneValid(/^\+\d{6,15}$/.test(e164));
-                                        }}
-                                        disabled={!expanded.MOBILE_MONEY}
+                            {t === 'MOBILE_MONEY' && isMobile && (
+                              <div style={{ marginTop: 8 }}>
+                                   <MobilePhoneField
+                                     callingCode={callingCode}
+                                     ref={phoneRef}
+                                       value={phoneDigits}
+                                     onChangeDigits={(digits) => {
+                                       const only = String(digits || '').replace(/\D+/g, '').slice(0, 9);
+                                       setPhoneDigits(only);
+                                       setPhoneValid(only.length >= 7 && only.length <= 9);
+                                     }}
                                     />
-                                </div>
-                            )}
+                                  </div>
+                             )}
 
                             {/* Crypto networks */}
                             {t === 'CRYPTO' && isCrypto && (
