@@ -350,7 +350,7 @@ export default function PayForm({
 
                             {/* Mobile phone field stays mounted only inside MOBILE_MONEY section */}
                             {t === 'MOBILE_MONEY' && (
-                                <div style={{ marginTop: 8, opacity: isMobile ? 1 : 0.5, pointerEvents: isMobile ? 'auto' : 'none' }}>
+                                <div style={{ marginTop: 8 }}>
                                     <MobilePhoneField
                                         callingCode={callingCode}
                                         ref={phoneRef}
@@ -361,7 +361,7 @@ export default function PayForm({
                                             const e164 = buildE164(only);
                                             setPhoneValid(/^\+\d{6,15}$/.test(e164));
                                         }}
-                                        disabled={!isMobile}
+                                        disabled={!expanded.MOBILE_MONEY}
                                     />
                                 </div>
                             )}
