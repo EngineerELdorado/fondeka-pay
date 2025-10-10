@@ -75,8 +75,8 @@ body{
 @media (max-width: 480px){
     :root{
         /* Lift the floor so “12px” text becomes 14–15px */
-        --font-xs: 14px;
-        --font-s:  15px;
+        --font-xs: 16px;
+        --font-s:  16px;
         --font-m:  16px; /* keep inputs at 16px */
         --font-l:  17px;
         --font-xl: 22px;
