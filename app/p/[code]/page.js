@@ -5,6 +5,8 @@ import LightboxClient from './lightbox-client';
 import ReadMore from './readmore';
 import { notFound } from 'next/navigation';
 import { cookies, headers } from 'next/headers';
+import Image from 'next/image';
+import logo from '../../../assets/logo.png'; // /assets/logo.png at repo root
 
 /* ------------------------- data fetching & helpers ------------------------- */
 
@@ -58,19 +60,20 @@ const getYouTubeId = (url) => {
 export default async function Page({ params }) {
     const raw = await fetchPublicLink(params.code);
 
-    // 404 → Next.js not-found page
+    // 404
     if (raw === null) notFound();
 
-    // Soft error UI (no event handlers in server component)
+    // Soft error (no client handlers here)
     if (raw?.__error) {
         const retryHref = `/p/${encodeURIComponent(params.code)}`;
         return (
             <main className="page">
                 <div className="wrap">
-                    <div className="brand-header">
-                        <div className="brand-logo" />
-                        <div className="brand-name">Fondeka</div>
-                    </div>
+
+                    {/* Centered logo header (its own row) */}
+                    {/*<HeaderLogo />*/}
+                    <div style={{ height: 1, background: 'var(--brand-border)', margin: '6px 0 12px' }} />
+
 
                     <section className="card card--plain" style={{ borderColor: '#FECACA', background: '#FEF2F2' }}>
                         <h1 className="h1" style={{ fontSize: 18, marginBottom: 6 }}>Oups…</h1>
@@ -85,12 +88,11 @@ export default async function Page({ params }) {
         );
     }
 
-    /* Normalize & derive rendering flags */
     const data = normalizeData(raw);
     const isDonation = data.type === 'DONATION';
     const isInvoice  = data.type === 'INVOICE';
 
-    /* Country detection (from CDN headers via middleware cookie; fallback to headers; then ‘CD’) */
+    /* Country detection (cookie → headers → default CD) */
     const ck = cookies();
     let countryIso = ck.get('country_iso')?.value?.toUpperCase();
     if (!countryIso) {
@@ -114,12 +116,27 @@ export default async function Page({ params }) {
     return (
         <main className="page">
             <div className="wrap">
-                <div className="brand-header">
-                    <div className="brand-logo" />
-                    <div className="brand-name">{(data.creator || '').trim() || 'Fondeka'}</div>
-                </div>
 
-                {/* Header (keep donation header concise; story shown later after media) */}
+                {/* Centered logo header (alone on its row) */}
+                {/*<HeaderLogo />*/}
+                <div style={{ height: 1, background: 'var(--brand-border)', margin: '6px 0 12px' }} />
+
+                {/* Creator row (separate from logo), centered */}
+                {/*{data.creator && (*/}
+                {/*    <div style={{*/}
+                {/*        width: '100%',*/}
+                {/*        display: 'flex',*/}
+                {/*        justifyContent: 'center',*/}
+                {/*        color: 'var(--brand-muted)',*/}
+                {/*        fontWeight: 700,*/}
+                {/*        marginBottom: 8,*/}
+                {/*        textAlign: 'center'*/}
+                {/*    }}>*/}
+                {/*        {data.creator}*/}
+                {/*    </div>*/}
+                {/*)}*/}
+
+                {/* Title / description (donation: keep long text later after media) */}
                 <header style={{ marginBottom: 6 }}>
                     <h1 className="h1">{data.title || (isInvoice ? 'Facture' : isDonation ? 'Collecte' : 'Paiement')}</h1>
                     {!isDonation && data.description && (
@@ -127,7 +144,7 @@ export default async function Page({ params }) {
                     )}
                 </header>
 
-                {/* Donation: media-first (no event handlers here; clicks handled in client component) */}
+                {/* Donation: media-first */}
                 {isDonation && (
                     <LightboxClient
                         ytId={ytId}
@@ -138,7 +155,7 @@ export default async function Page({ params }) {
                     />
                 )}
 
-                {/* Invoice: items summary above form */}
+                {/* Invoice: items summary */}
                 {isInvoice && items.length > 0 && (
                     <section className="card card--plain">
                         <h3 className="card-title">Détail</h3>
@@ -166,9 +183,36 @@ export default async function Page({ params }) {
                     </section>
                 )}
 
-                {/* Shared pay form (client component) */}
+                {/* Pay form */}
                 <PayForm data={data} detectedCountry={detectedCountry} />
             </div>
         </main>
+    );
+}
+
+/* ------------------------------- subcomponents ------------------------------ */
+
+/** Centered logo header row (no event handlers, safe in server component) */
+function HeaderLogo() {
+    return (
+        <div
+            style={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                /* tighter spacing */
+                margin: '2px 0 6px',
+                lineHeight: 0, // removes extra inline spacing around the image
+            }}
+        >
+            <Image
+                src={logo}
+                alt="Fondeka"
+                width={120}
+                priority
+                style={{ width: 120, objectFit: 'contain', display: 'block' }}
+            />
+        </div>
     );
 }
