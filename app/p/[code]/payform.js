@@ -1,55 +1,47 @@
 // app/p/[code]/payform.js
 'use client';
 
-import React, { memo, useEffect, useMemo, useState } from 'react';
+import React, { memo, forwardRef, useEffect, useMemo, useRef, useState } from 'react';
 import { API_BASE, http, idem } from '../../../lib/api';
 
 const GROUP_ORDER = ['MOBILE_MONEY', 'CRYPTO', 'CARD', 'BANK_TRANSFER', 'WALLET', 'OTHER'];
 
 export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
+    /* ---------- Immutable server props ---------- */
     const type       = data.type || 'QUICK_CHARGE';
     const currency   = data.currency || 'USD';
     const isDonation = type === 'DONATION';
 
-    const safePresets = Array.isArray(data.presets) ? data.presets : [];
-    const [amount, setAmount] = useState(
-        isDonation ? (safePresets?.[1] ?? data.minAmount ?? 0) : (data.amount ?? 0)
-    );
+    const defaultDonationAmount = Array.isArray(data.presets) && data.presets.length
+        ? String(data.presets[1] ?? data.presets[0])
+        : (data.minAmount != null ? String(data.minAmount) : '0');
 
-    // Country / calling code
+    /* ---------- Country / calling code ---------- */
     const [countryCode] = useState((detectedCountry || 'CD').toUpperCase());
     const callingCode = useMemo(() => mapIsoToCallingCode(countryCode) || '243', [countryCode]);
 
-    // Methods / selection
+    /* ---------- Methods & selection ---------- */
     const [methods, setMethods] = useState([]);
     const [grouped, setGrouped] = useState({});
     const [methodId, setMethodId] = useState(null);
     const selectedMethod = methods.find(m => m.id === methodId) || null;
-
     const isCrypto = selectedMethod?.type === 'CRYPTO';
     const isMobile = selectedMethod?.type === 'MOBILE_MONEY';
 
-    // Crypto networks
+    /* ---------- Crypto networks ---------- */
     const [networks, setNetworks] = useState([]);
     const [networkId, setNetworkId] = useState(null);
 
-    // Phone (keep controlled but do not remount field)
-    const [phone, setPhone] = useState('');
+    /* ---------- Uncontrolled inputs (refs) ---------- */
+    const amountRef = useRef(null);
+    const phoneRef  = useRef(null); // forwarded into MobilePhoneField
 
-    // Derived payer reference
-    const payerReference = useMemo(() => {
-        if (!isMobile) return undefined;
-        const digits = String(phone || '').replace(/\D+/g, '');
-        if (!callingCode || !digits) return undefined;
-        return `+${callingCode}${digits}`;
-    }, [isMobile, callingCode, phone]);
-
-    // UX
+    /* ---------- UX ---------- */
     const [busy, setBusy] = useState(false);
     const [err,  setErr]  = useState(null);
     const [status, setStatus] = useState('idle');
 
-    // Fetch methods
+    /* ---------- Fetch methods ---------- */
     useEffect(() => {
         (async () => {
             try {
@@ -72,7 +64,7 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                 Object.keys(g).forEach(t => { if (!ordered[t]) ordered[t] = g[t]; });
                 setGrouped(ordered);
 
-                // default select the first available method once (don’t re-auto-change later)
+                // choose once
                 setMethodId((ordered[GROUP_ORDER[0]]?.[0] || arr[0] || {}).id ?? null);
             } catch (e) {
                 setErr(e?.message || 'Impossible de charger les méthodes de paiement.');
@@ -80,7 +72,7 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
         })();
     }, [countryCode]);
 
-    // Fetch networks when crypto selected
+    /* ---------- Fetch networks when crypto picked ---------- */
     useEffect(() => {
         if (!isCrypto || !methodId) { setNetworks([]); setNetworkId(null); return; }
         (async () => {
@@ -95,33 +87,51 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
         })();
     }, [isCrypto, methodId]);
 
-    // ---- Accordions: start with the selected group open, but DO NOT auto-sync on every render (prevents remounts) ----
-    const selectedGroupInit = selectedMethod?.type || 'MOBILE_MONEY';
+    /* ---------- Accordions (fixed default; no resync) ---------- */
     const [expanded, setExpanded] = useState(() => {
-        const init = {}; GROUP_ORDER.forEach(t => init[t] = (t === selectedGroupInit)); return init;
+        const init = {}; GROUP_ORDER.forEach(t => init[t] = (t === 'MOBILE_MONEY')); return init;
     });
-    // Do NOT have a useEffect that re-syncs expanded with selection; it causes remounts → input loses focus.
 
-    // Validation
+    /* ---------- Validation helpers ---------- */
     const money = (n, curr) =>
         n == null ? '' : new Intl.NumberFormat(undefined, { style: 'currency', currency: curr || 'USD', maximumFractionDigits: 2 }).format(n || 0);
 
+    const getDonationAmountNumber = () => {
+        if (!isDonation) return data.amount ?? 0;
+        const raw = amountRef.current?.value ?? '';
+        const n = Number(String(raw).replace(',', '.'));
+        return Number.isFinite(n) ? n : 0;
+    };
+
+    const buildPayerReference = () => {
+        if (!isMobile) return undefined;
+        const raw = phoneRef.current?.value ?? '';
+        const digits = String(raw).replace(/\D+/g, '');
+        if (!callingCode || !digits) return undefined;
+        return `+${callingCode}${digits}`;
+    };
+
     const validate = () => {
-        if (isDonation) {
-            if (amount === '' || Number(amount) <= 0) return 'Veuillez entrer un montant.';
-            if (data.minAmount != null && Number(amount) < data.minAmount) return `Minimum: ${money(data.minAmount, currency)}`;
-            if (data.maxAmount != null && Number(amount) > data.maxAmount) return `Maximum: ${money(data.maxAmount, currency)}`;
-        }
         if (!methodId) return 'Veuillez choisir une méthode de paiement.';
-        if (isMobile) {
-            if (!payerReference) return 'Veuillez indiquer votre numéro (avec indicatif).';
-            if (!/^\+\d{6,15}$/.test(payerReference)) return 'Numéro invalide. Exemple: +243970000000';
+
+        if (isDonation) {
+            const n = getDonationAmountNumber();
+            if (n <= 0) return 'Veuillez entrer un montant.';
+            if (data.minAmount != null && n < data.minAmount) return `Minimum: ${money(data.minAmount, currency)}`;
+            if (data.maxAmount != null && n > data.maxAmount) return `Maximum: ${money(data.maxAmount, currency)}`;
         }
+
+        if (isMobile) {
+            const ref = buildPayerReference();
+            if (!ref) return 'Veuillez indiquer votre numéro (avec indicatif).';
+            if (!/^\+\d{6,15}$/.test(ref)) return 'Numéro invalide. Exemple: +243970000000';
+        }
+
         if (isCrypto && !networkId) return 'Veuillez choisir un réseau (blockchain).';
         return null;
     };
 
-    // Submit (POST /public/payment-requests/pay)
+    /* ---------- Submit ---------- */
     const onPay = async () => {
         const v = validate(); if (v) { setErr(v); return; }
         setErr(null); setBusy(true); setStatus('pending');
@@ -130,8 +140,8 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                 checkoutToken: data.checkoutToken || '',
                 paymentMethodId: methodId,
                 networkId: isCrypto ? networkId : undefined,
-                amount: isDonation ? Number(amount) : data.amount,
-                payerReference: isMobile ? payerReference : undefined,
+                amount: isDonation ? getDonationAmountNumber() : data.amount,
+                payerReference: isMobile ? buildPayerReference() : undefined,
                 idempotencyKey: idem(),
             };
             const res = await http(`${API_BASE}/public/payment-requests/pay`, {
@@ -145,7 +155,7 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
         finally { setBusy(false); }
     };
 
-    /* ---------- UI helpers (no-overflow & no-remount) ---------- */
+    /* ---------- UI helpers (fit & stable) ---------- */
 
     const Accordion = ({ title, typeKey, children }) => {
         const open = !!expanded[typeKey];
@@ -172,7 +182,6 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
         );
     };
 
-    // Fit-to-width grid: tiles wrap automatically on narrow phones
     const SquareGrid = ({ children }) => (
         <div
             style={{
@@ -234,8 +243,6 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
         </SquareGrid>
     );
 
-    const presets = useMemo(() => safePresets, [safePresets]);
-
     /* ---------- Render ---------- */
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -243,10 +250,10 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
             {isDonation ? (
                 <section className="card">
                     <label className="label">Montant</label>
-                    {!!presets.length && (
+                    {!!(Array.isArray(data.presets) && data.presets.length) && (
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-                            {presets.map((p, i) => (
-                                <button key={`${p}-${i}`} onClick={() => setAmount(p)} className={`chip ${amount===p ? 'chip--active' : ''}`}>
+                            {data.presets.map((p, i) => (
+                                <button key={`${p}-${i}`} onClick={() => { if (amountRef.current) amountRef.current.value = String(p); }} className="chip">
                                     {money(p, currency)}
                                 </button>
                             ))}
@@ -254,12 +261,13 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                     )}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, minWidth: 0 }}>
                         <input
+                            ref={amountRef}
                             inputMode="decimal"
+                            type="tel"
                             className="input"
-                            value={String(amount)}       // keep as string to avoid cursor jumps
-                            onChange={(e) => setAmount(e.target.value)}
+                            defaultValue={defaultDonationAmount}
                             placeholder={`Ex: ${data.minAmount ?? 0}`}
-                            style={{ flex: 1, minWidth: 0 }}
+                            style={{ flex: 1, minWidth: 0, fontSize: 16 }}
                         />
                         <span style={{ fontSize: 14, color: 'var(--brand-muted)', whiteSpace: 'nowrap' }}>{currency}</span>
                     </div>
@@ -295,8 +303,7 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                         {t === 'MOBILE_MONEY' && isMobile && (
                             <MobilePhoneField
                                 callingCode={callingCode}
-                                phone={phone}
-                                onPhoneChange={setPhone}
+                                ref={phoneRef}
                             />
                         )}
 
@@ -340,35 +347,38 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
 
 /* ------- memoized subcomponents & helpers ------- */
 
-// Memoized to prevent re-mount → keeps focus while typing
-const MobilePhoneField = memo(function MobilePhoneField({ callingCode, phone, onPhoneChange }) {
+// Uncontrolled + forwardRef; parent never updates while typing (no focus loss)
+const MobilePhoneField = memo(forwardRef(function MobilePhoneField({ callingCode }, inputRef) {
+    // local preview only (no parent state updates)
+    const [localDigits, setLocalDigits] = useState('');
     return (
         <div style={{ marginTop: 10 }}>
             <label className="label" style={{ marginBottom: 8 }}>Téléphone Mobile Money</label>
             <div style={{ display: 'flex', gap: 8, minWidth: 0 }}>
                 <input
                     className="input"
-                    style={{ width: 110, flex: '0 0 auto', color: '#0f172a', background: '#F8FAFC' }}
+                    style={{ width: 110, flex: '0 0 auto', color: '#0f172a', background: '#F8FAFC', fontSize: 16 }}
                     value={`+${callingCode}`}
                     readOnly
                     aria-label="Indicatif pays"
                 />
                 <input
+                    ref={inputRef}
                     className="input"
                     type="tel"
                     inputMode="numeric"
-                    value={phone}
-                    onChange={(e) => onPhoneChange(e.target.value)}
+                    defaultValue=""
+                    onInput={(e) => setLocalDigits(String(e.currentTarget.value || '').replace(/\D+/g, ''))}
                     placeholder="Numéro (ex: 970000000)"
-                    style={{ flex: 1, minWidth: 0 }}
+                    style={{ flex: 1, minWidth: 0, fontSize: 16 }}
                 />
             </div>
             <p className="p-muted" style={{ marginTop: 6, fontSize: 12 }}>
-                Format attendu: +{callingCode}{phone || '970000000'}
+                Format attendu: +{callingCode}{localDigits || '970000000'}
             </p>
         </div>
     );
-});
+}));
 
 const accordionHeaderStyle = (open) => ({
     width: '100%',

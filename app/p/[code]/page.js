@@ -5,8 +5,6 @@ import LightboxClient from './lightbox-client';
 import ReadMore from './readmore';
 import { notFound } from 'next/navigation';
 import { cookies, headers } from 'next/headers';
-import Image from 'next/image';
-import logo from '../../../assets/logo.png'; // /assets/logo.png at repo root
 
 /* ------------------------- data fetching & helpers ------------------------- */
 
@@ -43,7 +41,6 @@ function normalizeData(d) {
         image5: d.image5 ?? null,
     };
 }
-const toNum = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 
 const getYouTubeId = (url) => {
     if (!url) return null;
@@ -60,7 +57,7 @@ const getYouTubeId = (url) => {
 export default async function Page({ params }) {
     const raw = await fetchPublicLink(params.code);
 
-    // 404
+    // 404 → not found
     if (raw === null) notFound();
 
     // Soft error (no client handlers here)
@@ -70,10 +67,8 @@ export default async function Page({ params }) {
             <main className="page">
                 <div className="wrap">
 
-                    {/* Centered logo header (its own row) */}
-                    {/*<HeaderLogo />*/}
-                    <div style={{ height: 1, background: 'var(--brand-border)', margin: '6px 0 12px' }} />
-
+                    {/* Centered brand mark header */}
+                    <HeaderLogo />
 
                     <section className="card card--plain" style={{ borderColor: '#FECACA', background: '#FEF2F2' }}>
                         <h1 className="h1" style={{ fontSize: 18, marginBottom: 6 }}>Oups…</h1>
@@ -117,28 +112,23 @@ export default async function Page({ params }) {
         <main className="page">
             <div className="wrap">
 
-                {/* Centered logo header (alone on its row) */}
-                {/*<HeaderLogo />*/}
-                <div style={{ height: 1, background: 'var(--brand-border)', margin: '6px 0 12px' }} />
+                {/* Centered brand mark header (its own row) */}
+                <HeaderLogo />
 
-                {/* Creator row (separate from logo), centered */}
-                {/*{data.creator && (*/}
-                {/*    <div style={{*/}
-                {/*        width: '100%',*/}
-                {/*        display: 'flex',*/}
-                {/*        justifyContent: 'center',*/}
-                {/*        color: 'var(--brand-muted)',*/}
-                {/*        fontWeight: 700,*/}
-                {/*        marginBottom: 8,*/}
-                {/*        textAlign: 'center'*/}
-                {/*    }}>*/}
-                {/*        {data.creator}*/}
-                {/*    </div>*/}
-                {/*)}*/}
-
-                {/* Title / description (donation: keep long text later after media) */}
+                {/* Title / creator (creator directly under title with good hierarchy) */}
                 <header style={{ marginBottom: 6 }}>
-                    <h1 className="h1">{data.title || (isInvoice ? 'Facture' : isDonation ? 'Collecte' : 'Paiement')}</h1>
+                    <h1 className="h1" style={{ textAlign: 'left' }}>
+                        {data.title || (isInvoice ? 'Facture' : isDonation ? 'Collecte' : 'Paiement')}
+                    </h1>
+
+                    {data.creator && (
+                        <div style={{ marginTop: 4, fontSize: 13, display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                            <span style={{ color: 'var(--brand-muted)' }}>Created by</span>
+                            <strong style={{ color: 'var(--brand-primary)' }}>{data.creator}</strong>
+                        </div>
+                    )}
+
+                    {/* For donation, the long story is shown later under media */}
                     {!isDonation && data.description && (
                         <p className="p-muted" style={{ whiteSpace: 'pre-wrap' }}>{data.description}</p>
                     )}
@@ -192,7 +182,8 @@ export default async function Page({ params }) {
 
 /* ------------------------------- subcomponents ------------------------------ */
 
-/** Centered logo header row (no event handlers, safe in server component) */
+/** Brand mark header: rounded green square + "Fondeka", centered, tight spacing */
+/** Brand mark header: green rounded square + white dot + “Fondeka”, centered */
 function HeaderLogo() {
     return (
         <div
@@ -201,18 +192,58 @@ function HeaderLogo() {
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                /* tighter spacing */
-                margin: '2px 0 6px',
-                lineHeight: 0, // removes extra inline spacing around the image
+                margin: '2px 0 10px',
             }}
         >
-            <Image
-                src={logo}
-                alt="Fondeka"
-                width={120}
-                priority
-                style={{ width: 120, objectFit: 'contain', display: 'block' }}
-            />
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                {/* Green rounded square with a tiny white dot */}
+                <div
+                    aria-hidden="true"
+                    style={{
+                        position: 'relative',
+                        width: 24,
+                        height: 24,
+                        borderRadius: 8,
+                        background: 'var(--brand-primary)',
+                        boxShadow: '0 2px 6px rgba(79,128,92,0.20)',
+                        flex: '0 0 auto',
+                    }}
+                >
+                    {/* White dot (slightly offset for visual interest) */}
+                    <div
+                        style={{
+                            position: 'absolute',
+                            right: 4,     // adjust to taste (try 3–5)
+                            top: 4,       // adjust to taste (try 3–5)
+                            width: 6,
+                            height: 6,
+                            background: '#fff',
+                            borderRadius: '50%',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.12)',
+                        }}
+                    />
+                </div>
+
+                <div
+                    style={{
+                        fontWeight: 900,
+                        letterSpacing: 0.3,
+                        color: 'var(--brand-primary)',
+                        fontSize: 24,
+                        lineHeight: '16px',
+                    }}
+                >
+                    Fondeka
+                </div>
+            </div>
         </div>
     );
+}
+
+
+/* -------------------------------- utilities -------------------------------- */
+
+function toNum(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
 }
