@@ -6,8 +6,6 @@ import ReadMore from './readmore';
 import { notFound } from 'next/navigation';
 import { cookies, headers } from 'next/headers';
 
-/* ------------------------- data fetching & helpers ------------------------- */
-
 async function fetchPublicLink(code) {
     try {
         const res = await fetch(`${API_BASE}/public/payment-requests/${code}`, { cache: 'no-store' });
@@ -24,7 +22,7 @@ function normalizeData(d) {
     return {
         title: d.title ?? null,
         description: d.description ?? null,
-        creator: d.creator ?? null,                 // <-- include creator
+        creator: d.creator ?? null,
         type: d.type ?? 'QUICK_CHARGE',
         currency: d.currency ?? 'USD',
         amount: toNum(d.amount),
@@ -42,7 +40,6 @@ function normalizeData(d) {
     };
 }
 const toNum = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
-
 const getYouTubeId = (url) => {
     if (!url) return null;
     try {
@@ -53,15 +50,10 @@ const getYouTubeId = (url) => {
     } catch { return null; }
 };
 
-/* ---------------------------------- page ---------------------------------- */
-
 export default async function Page({ params }) {
     const raw = await fetchPublicLink(params.code);
-
-    // 404
     if (raw === null) notFound();
 
-    // Soft error (no client handlers in server component)
     if (raw?.__error) {
         const retryHref = `/p/${encodeURIComponent(params.code)}`;
         return (
@@ -84,12 +76,10 @@ export default async function Page({ params }) {
         );
     }
 
-    /* Normalize & derive rendering flags */
     const data = normalizeData(raw);
     const isDonation = data.type === 'DONATION';
     const isInvoice  = data.type === 'INVOICE';
 
-    /* Country detection (cookie from middleware; headers fallback; default CD) */
     const ck = cookies();
     let countryIso = ck.get('country_iso')?.value?.toUpperCase();
     if (!countryIso) {
@@ -101,16 +91,12 @@ export default async function Page({ params }) {
     }
     const detectedCountry = countryIso || 'CD';
 
-    /* Donation media */
     const ytId = getYouTubeId(data?.metadata?.youtubeUrl);
     const cover = data.image1 || null;
     const otherImages = [data.image2, data.image3, data.image4, data.image5].filter(Boolean);
-
-    /* Invoice items */
     const items = data.items;
     const sumItems = items.reduce((s, it) => s + Number(it.lineTotal || 0), 0);
 
-    // Helper: small, single-line “creator” label with truncation
     const creatorDisplay = (data.creator || '').trim();
 
     return (
@@ -118,12 +104,9 @@ export default async function Page({ params }) {
             <div className="wrap">
                 <div className="brand-header">
                     <div className="brand-logo" />
-                    <div className="brand-name">
-                        {creatorDisplay || 'Fondeka'}
-                    </div>
+                    <div className="brand-name">{creatorDisplay || 'Fondeka'}</div>
                 </div>
 
-                {/* Header (keep donation header concise; story shown later after media) */}
                 <header style={{ marginBottom: 6 }}>
                     <h1 className="h1">{data.title || (isInvoice ? 'Facture' : isDonation ? 'Collecte' : 'Paiement')}</h1>
                     {!isDonation && data.description && (
@@ -131,7 +114,6 @@ export default async function Page({ params }) {
                     )}
                 </header>
 
-                {/* Donation: media-first */}
                 {isDonation && (
                     <LightboxClient
                         ytId={ytId}
@@ -142,27 +124,26 @@ export default async function Page({ params }) {
                     />
                 )}
 
-                {/* Invoice: items summary above form */}
                 {isInvoice && items.length > 0 && (
                     <section className="card card--plain">
                         <h3 className="card-title">Détail</h3>
                         <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {items.map((it) => (
                                 <div key={it.id || `${it.name}-${Math.random()}`} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <div style={{ flex: 1 }}>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
                                         <div style={{ fontWeight: 700, fontSize: 14 }}>{it.name}</div>
                                         {it.description && <div style={{ color: '#64748B', fontSize: 12 }}>{it.description}</div>}
                                         <div style={{ color: '#64748B', fontSize: 12 }}>
                                             {it.quantity} × {Number(it.unitPrice).toFixed(2)} {data.currency}
                                         </div>
                                     </div>
-                                    <div style={{ fontWeight: 800 }}>{Number(it.lineTotal).toFixed(2)} {data.currency}</div>
+                                    <div style={{ fontWeight: 800, whiteSpace: 'nowrap' }}>{Number(it.lineTotal).toFixed(2)} {data.currency}</div>
                                 </div>
                             ))}
                             <div style={{ height: 1, background: 'var(--brand-border)', margin: '6px 0' }} />
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span className="label">Total</span>
-                                <strong style={{ fontSize: 16 }}>
+                                <strong style={{ fontSize: 16, whiteSpace: 'nowrap' }}>
                                     {(data.amount ?? sumItems)?.toFixed(2)} {data.currency}
                                 </strong>
                             </div>
@@ -170,7 +151,6 @@ export default async function Page({ params }) {
                     </section>
                 )}
 
-                {/* Shared pay form (client component) */}
                 <PayForm data={data} detectedCountry={detectedCountry} />
             </div>
         </main>

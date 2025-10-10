@@ -7,7 +7,6 @@ import { API_BASE, http, idem } from '../../../lib/api';
 const GROUP_ORDER = ['MOBILE_MONEY', 'CRYPTO', 'CARD', 'BANK_TRANSFER', 'WALLET', 'OTHER'];
 
 export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
-    /* ---------- Safe server data ---------- */
     const type       = data.type || 'QUICK_CHARGE';
     const currency   = data.currency || 'USD';
     const isDonation = type === 'DONATION';
@@ -17,24 +16,20 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
         isDonation ? (safePresets?.[1] ?? data.minAmount ?? 0) : (data.amount ?? 0)
     );
 
-    /* ---------- Country / phone ---------- */
     const [countryCode] = useState((detectedCountry || 'CD').toUpperCase());
     const callingCode = useMemo(() => mapIsoToCallingCode(countryCode) || '243', [countryCode]);
     const [phone, setPhone] = useState('');
 
-    /* ---------- Methods & groups ---------- */
     const [methods, setMethods] = useState([]);
     const [grouped, setGrouped] = useState({});
     const [methodId, setMethodId] = useState(null);
     const selectedMethod = methods.find(m => m.id === methodId) || null;
 
-    /* ---------- Crypto networks ---------- */
     const isCrypto = selectedMethod?.type === 'CRYPTO';
     const isMobile = selectedMethod?.type === 'MOBILE_MONEY';
     const [networks, setNetworks] = useState([]);
     const [networkId, setNetworkId] = useState(null);
 
-    /* ---------- Payer reference (mobile) ---------- */
     const payerReference = useMemo(() => {
         if (!isMobile) return undefined;
         const digits = String(phone || '').replace(/\D+/g, '');
@@ -42,12 +37,10 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
         return `+${callingCode}${digits}`;
     }, [isMobile, callingCode, phone]);
 
-    /* ---------- UX ---------- */
     const [busy, setBusy] = useState(false);
     const [err,  setErr]  = useState(null);
     const [status, setStatus] = useState('idle');
 
-    /* ---------- Fetch methods ---------- */
     useEffect(() => {
         (async () => {
             try {
@@ -78,12 +71,8 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
         })();
     }, [countryCode]);
 
-    /* ---------- Fetch networks on crypto selection ---------- */
     useEffect(() => {
-        if (!isCrypto || !methodId) {
-            setNetworks([]); setNetworkId(null);
-            return;
-        }
+        if (!isCrypto || !methodId) { setNetworks([]); setNetworkId(null); return; }
         (async () => {
             try {
                 const res = await fetch(`${API_BASE}/public/payment-requests/payment-methods/${methodId}/networks`, { cache: 'no-store' });
@@ -91,28 +80,20 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                 const nets = await res.json();
                 setNetworks(Array.isArray(nets) ? nets : []);
                 setNetworkId((Array.isArray(nets) && nets[0]?.id) ? nets[0].id : null);
-            } catch (e) {
-                setErr(e?.message || 'Impossible de charger les réseaux crypto.');
-            }
+            } catch (e) { setErr(e?.message || 'Impossible de charger les réseaux crypto.'); }
         })();
     }, [isCrypto, methodId]);
 
-    /* ---------- Accordion state ---------- */
     const selectedGroup = selectedMethod?.type || null;
     const [expanded, setExpanded] = useState(() => {
-        const init = {};
-        GROUP_ORDER.forEach(t => init[t] = (t === selectedGroup));
-        return init;
+        const init = {}; GROUP_ORDER.forEach(t => init[t] = (t === selectedGroup)); return init;
     });
     useEffect(() => {
         setExpanded(prev => {
-            const next = { ...prev };
-            GROUP_ORDER.forEach(t => next[t] = (t === selectedGroup));
-            return next;
+            const next = { ...prev }; GROUP_ORDER.forEach(t => next[t] = (t === selectedGroup)); return next;
         });
     }, [selectedGroup]);
 
-    /* ---------- Validation ---------- */
     const money = (n, curr) =>
         n == null ? '' : new Intl.NumberFormat(undefined, { style: 'currency', currency: curr || 'USD', maximumFractionDigits: 2 }).format(n || 0);
 
@@ -131,12 +112,9 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
         return null;
     };
 
-    /* ---------- Submit (POST /public/payment-requests/pay) ---------- */
     const onPay = async () => {
-        const v = validate();
-        if (v) { setErr(v); return; }
+        const v = validate(); if (v) { setErr(v); return; }
         setErr(null); setBusy(true); setStatus('pending');
-
         try {
             const body = {
                 checkoutToken: data.checkoutToken || '',
@@ -146,24 +124,16 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                 payerReference: isMobile ? payerReference : undefined,
                 idempotencyKey: idem(),
             };
-
             const res = await http(`${API_BASE}/public/payment-requests/pay`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
             });
-
-            if (res.nextAction?.type === 'REDIRECT' && res.nextAction?.urlOrHint) {
-                window.location.href = res.nextAction.urlOrHint; return;
-            }
-            if (res.status === 'SUCCEEDED') setStatus('succeeded');
-            else if (res.status === 'FAILED') { setStatus('failed'); setErr('Échec du paiement.'); }
-            else setStatus('pending');
-        } catch (e) {
-            setErr(e?.message || 'Impossible de procéder au paiement.');
-            setStatus('failed');
-        } finally { setBusy(false); }
+            if (res.nextAction?.type === 'REDIRECT' && res.nextAction?.urlOrHint) { window.location.href = res.nextAction.urlOrHint; return; }
+            if (res.status === 'SUCCEEDED') setStatus('succeeded'); else if (res.status === 'FAILED') { setStatus('failed'); setErr('Échec du paiement.'); } else setStatus('pending');
+        } catch (e) { setErr(e?.message || 'Impossible de procéder au paiement.'); setStatus('failed'); }
+        finally { setBusy(false); }
     };
 
-    /* ---------- UI helpers ---------- */
+    /* ---------- UI helpers (fit-to-width) ---------- */
 
     const Accordion = ({ title, typeKey, children }) => {
         const open = !!expanded[typeKey];
@@ -176,41 +146,27 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                     aria-expanded={open}
                 >
                     <span className="label" style={{ fontSize: 13 }}>{title}</span>
-
-                    {/* Bold chevron in a strong icon button */}
-                    <span
-                        style={{
-                            width: 28,
-                            height: 28,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderRadius: 8,
-                            background: open ? 'var(--brand-primary-soft)' : '#EEF2F7',
-                            border: `1px solid ${open ? 'var(--brand-primary)' : 'var(--brand-border)'}`,
-                            transition: 'transform .18s ease, background .18s',
-                            transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
-                        }}
-                    >
+                    <span style={{
+                        width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        borderRadius: 8, background: open ? 'var(--brand-primary-soft)' : '#EEF2F7',
+                        border: `1px solid ${open ? 'var(--brand-primary)' : 'var(--brand-border)'}`,
+                        transition: 'transform .18s ease, background .18s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+                    }}>
             <ChevronDown size={18} color={open ? 'var(--brand-primary)' : '#475569'} />
           </span>
                 </button>
-                {open && (
-                    <div style={{ paddingTop: 8 }}>
-                        {children}
-                    </div>
-                )}
+                {open && <div style={{ paddingTop: 8 }}>{children}</div>}
             </section>
         );
     };
 
+    // Fit-to-width grid: tiles wrap automatically; never force 3 columns if too narrow
     const SquareGrid = ({ children }) => (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))', gap: 10 }}>
             {children}
         </div>
     );
 
-    // Square tile; compact logos to avoid overflow (40px)
     const SquareTile = ({ active, onClick, logoUrl, name, logoSize = 40 }) => (
         <button
             onClick={onClick}
@@ -227,29 +183,17 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 8,
+                minWidth: 0,
             }}
         >
             {logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img
-                    src={logoUrl}
-                    alt={name}
-                    style={{ width: logoSize, height: logoSize, objectFit: 'cover', borderRadius: 10 }}
-                />
+                <img src={logoUrl} alt={name} style={{ width: logoSize, height: logoSize, objectFit: 'cover', borderRadius: 10 }} />
             ) : null}
-            <span
-                style={{
-                    fontSize: 11,
-                    lineHeight: '14px',
-                    textAlign: 'center',
-                    color: '#0f172a',
-                    fontWeight: 600,
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                }}
-            >
+            <span style={{
+                fontSize: 11, lineHeight: '14px', textAlign: 'center', color: '#0f172a', fontWeight: 600,
+                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+            }}>
         {name}
       </span>
         </button>
@@ -273,7 +217,6 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
     const presets = useMemo(() => safePresets, [safePresets]);
 
     /* ---------- Render ---------- */
-
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {/* Amount */}
@@ -296,10 +239,11 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                             value={amount === '' ? '' : amount}
                             onChange={(e) => setAmount(Number(e.target.value || 0))}
                             placeholder={`Ex: ${data.minAmount ?? 0}`}
+                            style={{ flex: 1, minWidth: 0 }}
                         />
-                        <span style={{ fontSize: 14, color: 'var(--brand-muted)' }}>{currency}</span>
+                        <span style={{ fontSize: 14, color: 'var(--brand-muted)', whiteSpace: 'nowrap' }}>{currency}</span>
                     </div>
-                    {(data.minAmount!=null && data.minAmount >0 || data.maxAmount!=null && data.maxAmount>0) && (
+                    {(data.minAmount!=null || data.maxAmount!=null) && (
                         <p className="p-muted" style={{ marginTop: 6, fontSize: 12 }}>
                             Limites: {data.minAmount ?? '—'} – {data.maxAmount ?? '—'} {currency}
                         </p>
@@ -307,9 +251,9 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                 </section>
             ) : (
                 <section className="card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span className="label">{type === 'INVOICE' ? 'Total à payer' : 'Montant'}</span>
-                        <strong style={{ fontSize: 16 }}>{money(data.amount, currency)}</strong>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minWidth: 0 }}>
+                        <span className="label"> {type === 'INVOICE' ? 'Total à payer' : 'Montant'} </span>
+                        <strong style={{ fontSize: 16, whiteSpace: 'nowrap' }}>{money(data.amount, currency)}</strong>
                     </div>
                 </section>
             )}
@@ -321,8 +265,7 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
             {GROUP_ORDER.map((t) => {
                 const list = grouped[t];
                 if (!list?.length) return null;
-
-                const logoSize = 40; // compact logo to prevent overflow
+                const logoSize = 40;
 
                 return (
                     <Accordion key={t} title={labelForType(t)} typeKey={t}>
@@ -333,20 +276,8 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                             <div style={{ marginTop: 10 }}>
                                 <label className="label" style={{ marginBottom: 8 }}>Téléphone Mobile Money</label>
                                 <div style={{ display: 'flex', gap: 8 }}>
-                                    <input
-                                        className="input"
-                                        style={{ maxWidth: 120, color: '#0f172a', background: '#F8FAFC' }}
-                                        value={`+${callingCode}`}
-                                        readOnly
-                                        aria-label="Indicatif pays"
-                                    />
-                                    <input
-                                        className="input"
-                                        value={phone}
-                                        onChange={(e) => setPhone(e.target.value)}
-                                        inputMode="numeric"
-                                        placeholder="Numéro (ex: 970000000)"
-                                    />
+                                    <input className="input" style={{ maxWidth: 120, color: '#0f172a', background: '#F8FAFC' }} value={`+${callingCode}`} readOnly aria-label="Indicatif pays" />
+                                    <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="numeric" placeholder="Numéro (ex: 970000000)" style={{ flex: 1, minWidth: 0 }} />
                                 </div>
                                 <p className="p-muted" style={{ marginTop: 6, fontSize: 12 }}>
                                     Format attendu: +{callingCode}{phone || '970000000'}
@@ -358,18 +289,18 @@ export default function PayForm({ data = {}, detectedCountry = 'CD' }) {
                         {t === 'CRYPTO' && isCrypto && (
                             <div style={{ marginTop: 10 }}>
                                 <label className="label" style={{ marginBottom: 8 }}>Réseau</label>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                                <SquareGrid>
                                     {networks.map(net => (
                                         <SquareTile
                                             key={net.id}
                                             active={networkId === net.id}
                                             onClick={() => setNetworkId(net.id)}
-                                            logoUrl={null}   // label only
+                                            logoUrl={null}
                                             name={net.displayName || net.name}
-                                            logoSize={0}     // hide logo box
+                                            logoSize={0}
                                         />
                                     ))}
-                                </div>
+                                </SquareGrid>
                             </div>
                         )}
                     </Accordion>
@@ -402,11 +333,10 @@ const accordionHeaderStyle = (open) => ({
     padding: '10px 12px',
     border: '1px solid var(--brand-border)',
     borderRadius: 12,
-    background: 'var(--brand-primary-soft-2)',
+    background: open ? 'var(--brand-primary-soft)' : 'var(--brand-primary-soft-2)',
     cursor: 'pointer',
     transition: 'background .18s',
     outline: 'none',
-    ...(open ? { background: 'var(--brand-primary-soft)' } : null),
 });
 
 function labelForType(t) {
@@ -420,27 +350,15 @@ function labelForType(t) {
     }
 }
 
-// Minimal ISO→calling code map (extend as needed)
 function mapIsoToCallingCode(iso2) {
-    const map = {
-        CD: '243', CG: '242', CM: '237', RW: '250', BI: '257',
-        KE: '254', TZ: '255', UG: '256', ZM: '260', ZW: '263',
-        GA: '241', AO: '244',
-    };
+    const map = { CD:'243', CG:'242', CM:'237', RW:'250', BI:'257', KE:'254', TZ:'255', UG:'256', ZM:'260', ZW:'263', GA:'241', AO:'244' };
     return map[(iso2 || '').toUpperCase()];
 }
 
 function ChevronDown({ size = 18, color = '#475569' }) {
     return (
         <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-            <path
-                d="M6 9l6 6 6-6"
-                fill="none"
-                stroke={color}
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
+            <path d="M6 9l6 6 6-6" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
     );
 }
