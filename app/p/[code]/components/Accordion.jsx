@@ -19,14 +19,14 @@ const Accordion = memo(function Accordion({ title, typeKey, open, onToggle, disa
                 aria-expanded={open}
                 disabled={disabled}
             >
-                <span className="label">{title}</span>
+                <span className="label" style={{color:'#1C1C1A'}}>{title}</span>
                 <span style={{
                     width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                     borderRadius: 8, background: open ? 'var(--brand-primary-soft)' : '#EEF2F7',
                     border: `1px solid ${open ? 'var(--brand-primary)' : 'var(--brand-border)'}`,
                     transition: 'transform .18s ease, background .18s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
                 }}>
-          <ChevronDown size={18} color={open ? 'var(--brand-primary)' : '#475569'} />
+          <ChevronDown size={18} color={open ? 'var(--brand-primary)' : '#1C1C1A'} />
         </span>
             </button>
             {open && <div style={{ paddingTop: 8 }}>{children}</div>}

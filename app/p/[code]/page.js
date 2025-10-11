@@ -1,21 +1,60 @@
-// app/p/[code]/page.js
-import {API_BASE} from '../../../lib/api';
+import { API_BASE } from '../../../lib/api';
 import PayForm from './payform';
 import PaymentsFeed from './payments';
 import LightboxClient from './lightbox-client';
-import {notFound} from 'next/navigation';
-import {cookies, headers} from 'next/headers';
+import { notFound } from 'next/navigation';
+import { cookies, headers } from 'next/headers';
+import ShareButton from "./components/ShareButton";
+import React from "react";
+
+/* -------------------- dynamic metadata (OG/Twitter image) -------------------- */
+export async function generateMetadata({ params }) {
+    async function fetchPublicLink(code) {
+        try {
+            const res = await fetch(`${API_BASE}/public/payment-requests/${code}`, { cache: 'no-store' });
+            if (!res.ok) return null;
+            return res.json();
+        } catch {
+            return null;
+        }
+    }
+    const raw = await fetchPublicLink(params.code);
+    if (!raw) return {};
+
+    const title = raw.title || 'Fondeka Pay';
+    const description = raw.description || 'Paiements via lien / QR – Fondeka';
+    const cover = raw.image1 || null;
+
+    // Build an absolute URL for the image
+    // Fallback to a generic icon if no cover provided
+    return {
+        title,
+        description,
+        openGraph: {
+            title,
+            description,
+            type: 'website',
+            images: cover ? [{ url: cover }] : undefined,
+        },
+        twitter: {
+            card: cover ? 'summary_large_image' : 'summary',
+            title,
+            description,
+            images: cover ? [cover] : undefined,
+        },
+    };
+}
 
 /* ------------------------- data fetching & helpers ------------------------- */
 
 async function fetchPublicLink(code) {
     try {
-        const res = await fetch(`${API_BASE}/public/payment-requests/${code}`, {cache: 'no-store'});
+        const res = await fetch(`${API_BASE}/public/payment-requests/${code}`, { cache: 'no-store' });
         if (res.status === 404) return null;
-        if (!res.ok) return {__error: `Erreur serveur (${res.status})`};
+        if (!res.ok) return { __error: `Erreur serveur (${res.status})` };
         return res.json();
     } catch {
-        return {__error: 'Connexion au serveur impossible.'};
+        return { __error: 'Connexion au serveur impossible.' };
     }
 }
 
@@ -64,7 +103,7 @@ const getYouTubeId = (url) => {
 function evaluatePayability(type, lifecycle) {
     const l = String(lifecycle || '').toUpperCase();
     const t = String(type || '').toUpperCase();
-    if (l === 'ACTIVE') return {canPay: true, reason: null, tone: null};
+    if (l === 'ACTIVE') return { canPay: true, reason: null, tone: null };
     if (['SUSPENDED', 'CANCELLED', 'CANCELED', 'EXPIRED'].includes(l)) {
         const map = {
             SUSPENDED: 'Collecte suspendue',
@@ -72,19 +111,19 @@ function evaluatePayability(type, lifecycle) {
             CANCELED: 'Collecte annulée',
             EXPIRED: 'Collecte expirée'
         };
-        return {canPay: false, reason: map[l] || 'Paiements indisponibles', tone: 'warn'};
+        return { canPay: false, reason: map[l] || 'Paiements indisponibles', tone: 'warn' };
     }
     if (l === 'COMPLETED') {
         return t === 'DONATION'
-            ? {canPay: false, reason: 'Objectif atteint — campagne clôturée', tone: 'info'}
-            : {canPay: false, reason: 'Demande clôturée (déjà réglée)', tone: 'info'};
+            ? { canPay: false, reason: 'Objectif atteint — campagne clôturée', tone: 'info' }
+            : { canPay: false, reason: 'Demande clôturée (déjà réglée)', tone: 'info' };
     }
-    return {canPay: false, reason: 'Paiements indisponibles pour le moment', tone: 'muted'};
+    return { canPay: false, reason: 'Paiements indisponibles pour le moment', tone: 'muted' };
 }
 
 /* ---------------------------------- page ---------------------------------- */
 
-export default async function Page({params}) {
+export default async function Page({ params }) {
     const raw = await fetchPublicLink(params.code);
     if (raw === null) notFound();
 
@@ -93,12 +132,11 @@ export default async function Page({params}) {
         return (
             <main className="page">
                 <div className="wrap">
-                    <HeaderLogo/>
-                    <section className="card card--plain" style={{borderColor: '#FECACA', background: '#FEF2F2'}}>
-                        <h1 className="h1" style={{fontSize: 18, marginBottom: 6}}>Oups…</h1>
-                        <p className="p-muted"
-                           style={{color: '#991B1B'}}>{raw.__error || 'Une erreur est survenue.'}</p>
-                        <div style={{display: 'flex', gap: 8, marginTop: 10}}>
+                    <HeaderLogo />
+                    <section className="card card--plain" style={{ borderColor: '#FECACA', background: '#FEF2F2' }}>
+                        <h1 className="h1" style={{ fontSize: 18, marginBottom: 6 }}>Oups…</h1>
+                        <p className="p-muted" style={{ color: '#991B1B' }}>{raw.__error || 'Une erreur est survenue.'}</p>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                             <a href="/" className="tile">Accueil</a>
                             <a href={retryHref} className="tile">Réessayer</a>
                         </div>
@@ -110,14 +148,14 @@ export default async function Page({params}) {
 
     const data = normalizeData(raw);
     const isDonation = data.type === 'DONATION';
-    const isInvoice = data.type === 'INVOICE';
-    const {canPay, reason} = evaluatePayability(data.type, data.lifecycle);
+    const isInvoice  = data.type === 'INVOICE';
+    const { canPay, reason } = evaluatePayability(data.type, data.lifecycle);
 
     // country detect (cookie → headers → default)
     const ck = cookies();
     let countryIso = ck.get('country_iso')?.value?.toUpperCase();
+    const hdr = headers();
     if (!countryIso) {
-        const hdr = headers();
         countryIso =
             hdr.get('x-vercel-ip-country')?.toUpperCase() ||
             hdr.get('cloudfront-viewer-country')?.toUpperCase() ||
@@ -125,8 +163,13 @@ export default async function Page({params}) {
     }
     const detectedCountry = countryIso || 'CD';
 
+    // Current page absolute URL for sharing
+    const proto = hdr.get('x-forwarded-proto') || 'https';
+    const host  = hdr.get('x-forwarded-host') || hdr.get('host');
+    const currentUrl = `${proto}://${host}/p/${encodeURIComponent(params.code)}`;
+
     // Donation media
-    const ytId = getYouTubeId(data?.metadata?.youtubeUrl);
+    const ytId  = getYouTubeId(data?.metadata?.youtubeUrl);
     const cover = data.image1 || null;
     const otherImages = [data.image2, data.image3, data.image4, data.image5].filter(Boolean);
 
@@ -138,44 +181,35 @@ export default async function Page({params}) {
             <div className="wrap">
 
                 {/* Brand header */}
-                <HeaderLogo/>
+                <HeaderLogo />
 
-                {/* Title / creator */}
-                <header style={{marginBottom: 6}}>
+                {/* Title / creator (no buttons here now) */}
+                <header style={{ marginBottom: 6 }}>
                     <h1 className="h1">
                         {data.title || (isInvoice ? 'Facture' : isDonation ? 'Collecte' : 'Paiement')}
                     </h1>
+
                     {data.creator && (
-                        <div style={{
-                            marginTop: 4,
-                            fontSize: 13,
-                            display: 'flex',
-                            gap: 6,
-                            alignItems: 'baseline',
-                            flexWrap: 'wrap'
-                        }}>
-                            <span style={{color: 'var(--brand-muted)'}}>Created by</span>
-                            <strong style={{color: 'var(--brand-primary)'}}>{data.creator}</strong>
+                        <div style={{ marginTop: 4, display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                            <span style={{ color: 'var(--brand-muted)' }}>Created by</span>
+                            <strong style={{ color: 'var(--brand-primary)' }}>{data.creator}</strong>
                         </div>
                     )}
+
                     {!isDonation && data.description && (
-                        <p className="p-muted" style={{whiteSpace: 'pre-wrap'}}>{data.description}</p>
+                        <p className="p-muted" style={{ whiteSpace: 'pre-wrap' }}>{data.description}</p>
                     )}
                 </header>
 
                 {/* Lifecycle banner */}
                 {!canPay && (
-                    <section className="card card--plain"
-                             style={{borderColor: 'var(--brand-border)', background: '#FFF8F0'}}>
-                        <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
-                            <span style={{
-                                width: 10,
-                                height: 10,
-                                borderRadius: 5,
-                                background: '#F59E0B',
-                                flex: '0 0 auto'
-                            }}/>
-                            <strong style={{color: '#92400E'}}>{reason}</strong>
+                    <section
+                        className="card card--plain"
+                        style={{ borderColor: 'var(--brand-border)', background: '#FFF8F0' }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ width: 10, height: 10, borderRadius: 5, background: '#F59E0B', flex: '0 0 auto' }} />
+                            <strong style={{ color: '#92400E' }}>{reason}</strong>
                         </div>
                     </section>
                 )}
@@ -187,6 +221,8 @@ export default async function Page({params}) {
                         cover={cover}
                         otherImages={otherImages}
                         story={data.description}
+                        currentUrl={currentUrl}
+                        isDonation={isDonation}
                         images={[cover, ...otherImages].filter(Boolean)}
                     />
                 )}
@@ -195,27 +231,30 @@ export default async function Page({params}) {
                 {isInvoice && items.length > 0 && (
                     <section className="card card--plain">
                         <h3 className="card-title">Détail</h3>
-                        <div style={{marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8}}>
+                        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {items.map((it) => (
-                                <div key={it.id || `${it.name}-${Math.random()}`}
-                                     style={{display: 'flex', alignItems: 'center', gap: 8}}>
-                                    <div style={{flex: 1, minWidth: 0}}>
-                                        <div style={{fontWeight: 700, fontSize: 14}}>{it.name}</div>
-                                        {it.description &&
-                                            <div style={{color: '#64748B', fontSize: 12}}>{it.description}</div>}
-                                        <div style={{color: '#64748B', fontSize: 12}}>
+                                <div
+                                    key={it.id || `${it.name}-${Math.random()}`}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+                                >
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: 700, fontSize: 14 }}>{it.name}</div>
+                                        {it.description && <div style={{ color: '#64748B', fontSize: 12 }}>{it.description}</div>}
+                                        <div style={{ color: '#64748B', fontSize: 12 }}>
                                             {it.quantity} × {Number(it.unitPrice).toFixed(2)} {data.currency}
                                         </div>
                                     </div>
-                                    <div style={{
-                                        fontWeight: 800,
-                                        whiteSpace: 'nowrap'
-                                    }}>{Number(it.lineTotal).toFixed(2)} {data.currency}</div>
+                                    <div style={{ fontWeight: 800, whiteSpace: 'nowrap' }}>
+                                        {Number(it.lineTotal).toFixed(2)} {data.currency}
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     </section>
                 )}
+
+                {/* Anchor for "Faire un don" smooth scroll */}
+                <div id="pay-form" style={{ scrollMarginTop: 80 }} />
 
                 {/* Pay form (disabled when not payable) */}
                 <PayForm
@@ -227,8 +266,37 @@ export default async function Page({params}) {
                 />
 
                 {/* Endless payments list */}
-                {data.type === 'DONATION' && (
-                    <PaymentsFeed publicCode={params.code} currency={data.currency || 'USD'} requestType={data.type}/>)}
+                {isDonation && (
+                    <PaymentsFeed
+                        publicCode={params.code}
+                        currency={data.currency || 'USD'}
+                        requestType={data.type}
+                    />
+                )}
+                {isDonation && (
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 12, marginBottom: 8 }}>
+                        <ShareButton url={currentUrl} title={data?.title} cover={cover} />
+                        <a
+                            className="chip"
+                            href="#pay-form"
+                            aria-label="Aller au formulaire de paiement"
+                            style={{
+                                textDecoration: 'none',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                fontWeight: 800,
+                                color: '#4F805C',
+                            }}
+                        >
+                            {/* Heart/Donate icon */}
+                            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 21s-6.716-4.594-9.09-7.09C.579 11.56.79 8.27 3.05 6.51a5 5 0 0 1 6.58.57L12 8.58l2.37-1.5a5 5 0 0 1 6.58-.57c2.26 1.76 2.47 5.05.14 7.4C18.716 16.406 12 21 12 21z" fill="#4F805C"/>
+                            </svg>
+                            Donate
+                        </a>
+                    </div>
+                )}
             </div>
         </main>
     );
@@ -248,7 +316,7 @@ function HeaderLogo() {
                 margin: '2px 0 10px',
             }}
         >
-            <div style={{display: 'inline-flex', alignItems: 'center', gap: 10}}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
                 {/* Green rounded square with top-right white dot */}
                 <div
                     aria-hidden="true"

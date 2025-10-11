@@ -3,8 +3,9 @@
 import React, { useState } from 'react';
 import GalleryLightbox from './gallery';
 import ReadMore from './readmore';
+import ShareButton from "./components/ShareButton";
 
-export default function LightboxClient({ ytId, cover, otherImages = [], story, images = [] }) {
+export default function LightboxClient({ ytId, cover, otherImages = [], story, images = [], currentUrl, isDonation, data }) {
     const [open, setOpen] = useState(false);
     const [startIndex, setStartIndex] = useState(0);
 
@@ -62,6 +63,34 @@ export default function LightboxClient({ ytId, cover, otherImages = [], story, i
                     </div>
                 </section>
             )}
+
+
+            {/* Donation-only actions — now BELOW media, centered */}
+            {isDonation && (
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 12, marginBottom: 8 }}>
+                    <ShareButton url={currentUrl} title={data?.title} cover={cover} />
+                    <a
+                        className="chip"
+                        href="#pay-form"
+                        aria-label="Aller au formulaire de paiement"
+                        style={{
+                            textDecoration: 'none',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 8,
+                            fontWeight: 800,
+                            color: '#4F805C',
+                        }}
+                    >
+                        {/* Heart/Donate icon */}
+                        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M12 21s-6.716-4.594-9.09-7.09C.579 11.56.79 8.27 3.05 6.51a5 5 0 0 1 6.58.57L12 8.58l2.37-1.5a5 5 0 0 1 6.58-.57c2.26 1.76 2.47 5.05.14 7.4C18.716 16.406 12 21 12 21z" fill="#4F805C"/>
+                        </svg>
+                        Donate
+                    </a>
+                </div>
+            )}
+
 
             {/* 4) Story */}
             {story && (

@@ -129,3 +129,4 @@ body{
 @media (max-width:480px){
     .chip{ padding: 10px 14px; font-size: 16px; }
 }
+html { scroll-behavior: smooth; }

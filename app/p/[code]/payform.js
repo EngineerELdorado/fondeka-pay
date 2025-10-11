@@ -351,7 +351,7 @@ export default function PayForm({
             )}
 
             {/* Methods header */}
-            <div className="label" style={{marginTop: 2}}>
+            <div className="label" style={{marginTop: 2,  color: ''}}>
                 How do you want to pay?
                 {disabledReason && (
                     <span style={{display: 'block', color: '#64748B', fontSize: 14, marginTop: 4}}>
