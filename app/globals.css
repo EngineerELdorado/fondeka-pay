@@ -11,8 +11,8 @@
     --container-max:420px;
 
     /* Fluid type scale (desktop-ish defaults) */
-    --font-xs: 12px;
-    --font-s:  14px;
+    --font-xs: 16px;
+    --font-s:  16px;
     --font-m:  16px;
     --font-l:  18px;
     --font-xl: 22px;
@@ -69,7 +69,7 @@ body{
 /* Cards/tiles (unchanged) */
 .card{ border:1px solid var(--brand-border); border-radius:16px; padding:14px; background:var(--brand-primary-soft-2); margin-bottom:12px; }
 .card--plain{ background:#fff; }
-.tile{ border:1px solid var(--brand-border); border-radius:12px; padding:10px 12px; background:#fff; font-weight:600; }
+.tile{ border:1px solid var(--brand-border); border-radius:12px; padding:10px 12px; background:#fff; font-weight:900; }
 
 /* ——— Mobile bump: increase minimum sizes on narrow screens ——— */
 @media (max-width: 480px){
@@ -127,5 +127,5 @@ body{
     color: var(--brand-primary);
 }
 @media (max-width:480px){
-    .chip{ padding: 10px 14px; font-size: 15px; }
+    .chip{ padding: 10px 14px; font-size: 16px; }
 }
