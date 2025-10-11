@@ -9,6 +9,7 @@ import React from "react";
 
 /* -------------------- dynamic metadata (OG/Twitter image) -------------------- */
 export async function generateMetadata({ params }) {
+    // fetch data
     async function fetchPublicLink(code) {
         try {
             const res = await fetch(`${API_BASE}/public/payment-requests/${code}`, { cache: 'no-store' });
@@ -18,29 +19,51 @@ export async function generateMetadata({ params }) {
             return null;
         }
     }
+
     const raw = await fetchPublicLink(params.code);
     if (!raw) return {};
 
     const title = raw.title || 'Fondeka Pay';
     const description = raw.description || 'Paiements via lien / QR – Fondeka';
-    const cover = raw.image1 || null;
 
-    // Build an absolute URL for the image
-    // Fallback to a generic icon if no cover provided
+    // Build absolute base URL from request (important for OG/Twitter crawlers)
+    const hdr   = headers();
+    const proto = hdr.get('x-forwarded-proto') || 'https';
+    const host  = hdr.get('x-forwarded-host') || hdr.get('host') || 'pay.fondeka.com';
+    const base  = `${proto}://${host}`;
+
+    // Page URL (canonical)
+    const pageUrl = `${base}/p/${encodeURIComponent(params.code)}`;
+
+    // Ensure cover is an ABSOLUTE, crawlable URL with proper content-type/size
+    const coverRaw = raw.image1 || null;
+    const coverAbs = coverRaw
+        ? (coverRaw.startsWith('http') ? coverRaw : `${base}${coverRaw.startsWith('/') ? '' : '/'}${coverRaw}`)
+        : null;
+
     return {
         title,
         description,
+        alternates: { canonical: pageUrl },
         openGraph: {
+            url: pageUrl,
+            type: 'website',
             title,
             description,
-            type: 'website',
-            images: cover ? [{ url: cover }] : undefined,
+            images: coverAbs ? [{
+                url: coverAbs,
+                secureUrl: coverAbs.replace(/^http:/, 'https:'),
+                width: 1200,            // recommended OG size
+                height: 630,
+                type: 'image/jpeg',     // adjust to actual mime if PNG
+                alt: title,
+            }] : undefined,
         },
         twitter: {
-            card: cover ? 'summary_large_image' : 'summary',
+            card: coverAbs ? 'summary_large_image' : 'summary',
             title,
             description,
-            images: cover ? [cover] : undefined,
+            images: coverAbs ? [coverAbs] : undefined,
         },
     };
 }

@@ -7,15 +7,25 @@ export default function ShareButton({ url, title, cover }) {
 
     async function onShare() {
         try {
-            if (navigator.share) {
-                // Some browsers ignore images; OG/Twitter meta (already set server-side) handles preview.
-                await navigator.share({ title: 'Fondeka', text, url });
-            } else {
-                await navigator.clipboard.writeText(url);
-                alert('Lien copié dans le presse-papiers');
+            // Try Web Share with FILE (best UX if supported + CORS allows fetching the image)
+            const files = await tryBuildShareFiles(cover);
+            if (files && typeof navigator !== 'undefined' && navigator.canShare?.({ files })) {
+                await navigator.share({ title: 'Fondeka', text, url, files });
+                return;
             }
+
+            // Fallback: classic Web Share with URL/text (most modern browsers)
+            if (typeof navigator !== 'undefined' && navigator.share) {
+                await navigator.share({ title: 'Fondeka', text, url });
+                return;
+            }
+
+            // Final fallback: copy URL to clipboard
+            await navigator.clipboard.writeText(url);
+            // Use a minimal, non-blocking toast if you want; keeping alert() for simplicity:
+            alert('Lien copié dans le presse-papiers');
         } catch {
-            // user cancelled or share failed; no-op
+            // user cancelled or sharing failed — ignore
         }
     }
 
@@ -25,7 +35,7 @@ export default function ShareButton({ url, title, cover }) {
             className="chip"
             onClick={onShare}
             aria-label="Partager"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 800, color:'#4F805C' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 800, color: '#4F805C' }}
         >
             {/* share icon */}
             <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
@@ -34,4 +44,41 @@ export default function ShareButton({ url, title, cover }) {
             Share
         </button>
     );
+}
+
+/**
+ * Try to fetch the cover image and wrap it as a File for Web Share Level 2.
+ * Requirements:
+ *  - cover must be same-origin or CORS-enabled to allow fetch
+ *  - size should be reasonably small (< ~10MB)
+ *  - mime must be an image/* type
+ */
+async function tryBuildShareFiles(cover) {
+    try {
+        if (!cover) return null;
+
+        const res = await fetch(cover, { mode: 'cors', credentials: 'omit' });
+        if (!res.ok) return null;
+
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.startsWith('image/')) return null;
+
+        // Optional: reject very large images (some platforms fail silently on huge files)
+        const contentLength = Number(res.headers.get('content-length') || 0);
+        if (contentLength && contentLength > 10 * 1024 * 1024) return null; // 10MB cap
+
+        const blob = await res.blob();
+        const ext  = guessExtFromMime(contentType);
+        const file = new File([blob], `fondeka-cover${ext}`, { type: contentType });
+        return [file];
+    } catch {
+        return null;
+    }
+}
+
+function guessExtFromMime(mime) {
+    if (mime.includes('png')) return '.png';
+    if (mime.includes('webp')) return '.webp';
+    if (mime.includes('jpeg') || mime.includes('jpg')) return '.jpg';
+    return '';
 }
