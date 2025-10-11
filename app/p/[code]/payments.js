@@ -131,16 +131,16 @@ export default function PaymentsFeed({ publicCode, currency = 'USD', pageSize = 
         <section className="card card--plain" style={{ background: '#fff', marginTop: 12 }}>
             {/* Header with refresh */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 className="card-title" style={{ margin: 0 }}>Paiements</h3>
+                <h3 className="card-title" style={{ margin: 0 }}>They have contributed</h3>
                 <button
                     aria-label="Rafraîchir"
                     title="Rafraîchir"
                     className="tile"
                     onClick={resetAndFetchFirst}
-                    style={{ padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                    style={{ padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: 6, color: '#4F805C' }}
                 >
                     <IconRefresh />
-                    <span style={{ fontSize: 14 }}>Rafraîchir</span>
+                    <span style={{ fontSize: 14 }}>Refresh</span>
                 </button>
             </div>
 
