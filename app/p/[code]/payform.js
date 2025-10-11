@@ -344,7 +344,7 @@ export default function PayForm({
             ) : (
                 <section className="card" style={disabled ? {opacity: 0.6, pointerEvents: 'none'} : undefined}>
                     <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', minWidth: 0}}>
-                        <span className="label">{type === 'INVOICE' ? 'Total à payer' : 'Montant'}</span>
+                        <span className="label">{type === 'INVOICE' ? 'Total to pay' : 'Amount'}</span>
                         <strong style={{fontSize: 16, whiteSpace: 'nowrap'}}>{money(data.amount, currency)}</strong>
                     </div>
                 </section>
@@ -397,7 +397,7 @@ export default function PayForm({
                             {/* Crypto networks */}
                             {t === 'CRYPTO' && isCrypto && (
                                 <div style={{marginTop: 10}}>
-                                    <label className="label" style={{marginBottom: 6}}>Réseau</label>
+                                    <label className="label" style={{marginBottom: 6}}>Network</label>
                                     <NetworkPills items={networks} selectedId={networkId} onSelect={setNetworkId}
                                                   disabled={disabled}/>
                                 </div>
@@ -448,7 +448,7 @@ export default function PayForm({
                     {canRefresh && (
                         <div style={{display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap'}}>
                             <button className="tile" onClick={onRefreshAndRetry} style={{padding: '8px 10px'}}>
-                                Rafraîchir & réessayer
+                                Refresh & rety
                             </button>
                         </div>
                     )}
@@ -471,7 +471,7 @@ export default function PayForm({
                     opacity: (busy || disabled || !methodId || (isCrypto && !networkId) || !amountReady() || (isMobile && !phoneValid)) ? .6 : 1
                 }}
             >
-                {busy ? 'Traitement…' : 'Payer maintenant'}
+                {busy ? 'Sending…' : 'Pay Now'}
             </button>
 
             {/* Status */}

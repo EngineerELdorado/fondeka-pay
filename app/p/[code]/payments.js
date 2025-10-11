@@ -140,7 +140,7 @@ export default function PaymentsFeed({ publicCode, currency = 'USD', pageSize = 
                     style={{ padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
                 >
                     <IconRefresh />
-                    <span style={{ fontSize: 12 }}>Rafraîchir</span>
+                    <span style={{ fontSize: 14 }}>Rafraîchir</span>
                 </button>
             </div>
 
@@ -173,7 +173,7 @@ export default function PaymentsFeed({ publicCode, currency = 'USD', pageSize = 
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                                 <Avatar type={requestType} />
                                 <div style={{ minWidth: 0 }}>
-                                    <div style={{ fontWeight: 800, color: '#0f172a' }}>
+                                    <div style={{ fontWeight: 900, color: '#0f172a' }}>
                                         {fmtMoney(p.amount)}
                                     </div>
 
@@ -181,7 +181,7 @@ export default function PaymentsFeed({ publicCode, currency = 'USD', pageSize = 
                                     {p.payerName && (
                                         <div
                                             style={{
-                                                fontSize: 12,
+                                                fontSize: 14,
                                                 color: '#0f172a',
                                                 marginTop: 2,
                                                 overflow: 'hidden',
@@ -197,7 +197,7 @@ export default function PaymentsFeed({ publicCode, currency = 'USD', pageSize = 
                             </div>
 
                             {/* Right: date */}
-                            <div style={{ fontSize: 12, color: '#64748B', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontSize: 13, color: '#64748B', whiteSpace: 'nowrap' }}>
                                 {fmtDate(p.createdAt)}
                             </div>
                         </div>

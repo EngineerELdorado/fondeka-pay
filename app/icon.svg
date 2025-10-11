@@ -1,0 +1,7 @@
+<!-- app/icon.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 24 24">
+    <!-- green rounded square -->
+    <rect x="2" y="2" width="20" height="20" rx="6" fill="#4F805C"/>
+    <!-- top-right white dot -->
+    <circle cx="18" cy="6" r="2" fill="#ffffff"/>
+</svg>

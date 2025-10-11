@@ -66,7 +66,7 @@ export default function LightboxClient({ ytId, cover, otherImages = [], story, i
             {/* 4) Story */}
             {story && (
                 <section className="card card--plain">
-                    <h3 className="card-title" style={{ marginBottom: 6 }}>À propos</h3>
+                    <h3 className="card-title" style={{ marginBottom: 6 }}>About</h3>
                     <ReadMore text={story} collapsedChars={320} />
                 </section>
             )}
