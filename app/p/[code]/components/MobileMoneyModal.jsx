@@ -20,11 +20,11 @@ export default function MobileMoneyModal({ open, onClose, number, hint, onRefres
 
                     <p className="p-muted" style={{ marginTop: 10 }}>
                         Nous avons envoyé une demande de paiement à{' '}
-                        <strong style={{ color: 'var(--brand-primary)' }}>{formatted || number || '—'}</strong>.
+                        <strong style={{ color: 'var(--brand-primary)' }}>{hint}</strong>.
                         Verifiez votre telephone qui heberge ce numero et validez l’opération.
                     </p>
 
-                    {hint && <p className="p-muted" style={{ marginTop: 6 }}>{hint}</p>}
+                    {/*{hint && <p className="p-muted" style={{ marginTop: 6 }}>{hint}</p>}*/}
                 </div>
             </div>
         </div>
