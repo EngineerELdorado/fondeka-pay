@@ -1,4 +1,4 @@
-// File: /Users/deniskalengawatshipamba/Documents/projects/fondeka/fondeka-pay/app/layout.js
+// File: /Users/deniskalengawatshipamba/Documents/projects/fondeka/frontends/fondeka-pay/app/layout.js
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
