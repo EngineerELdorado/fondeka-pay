@@ -7,7 +7,6 @@ import {
     labelForType,
     mapIsoToCallingCode,
     money,
-    formatPhone,
     parseCryptoHint,
     prettyError,
     shouldRefreshOnError,
@@ -61,18 +60,11 @@ export default function PayForm({
     const [result, setResult] = useState(null);
     const [showQr, setShowQr] = useState(false);
     const [showMM, setShowMM] = useState(false);
-    const [showReview, setShowReview] = useState(false);
     const [canRefresh, setCanRefresh] = useState(false);
+    const [showReview, setShowReview] = useState(false);
     const [quote, setQuote] = useState(null);
     const [quoteLoading, setQuoteLoading] = useState(false);
     const [quoteError, setQuoteError] = useState(null);
-    const quoteCache = useRef(new Map());
-
-    const enteredAmount = isDonation ? getDonationAmountNumber() : Number(data.amount) || 0;
-    const summaryFees = quote && typeof quote.fees === 'number' ? quote.fees : null;
-    const summaryTotal = quote && typeof quote.totalToPay === 'number'
-        ? quote.totalToPay
-        : enteredAmount;
 
     // validity + controlled phone
     const [amountValid, setAmountValid] = useState(() => !isDonation ? Number(data.amount) > 0 : false);
@@ -129,6 +121,10 @@ export default function PayForm({
 
     const amountReady = () => (isDonation ? amountValid : Number(data.amount) > 0);
 
+    const enteredAmount = isDonation ? getDonationAmountNumber() : Number(data.amount) || 0;
+    const totalToPay = quote?.totalToPay ?? enteredAmount;
+    const fees = quote?.fees ?? null;
+
     const showContact = () => {
         if (disabled) return false;
         if (!methodId) return false;
@@ -147,6 +143,31 @@ export default function PayForm({
         setCheckoutToken(link.checkoutToken);
         return link.checkoutToken;
     };
+
+    /* ---------- quote (fees) ---------- */
+    const fetchQuote = useCallback(async () => {
+        const params = new URLSearchParams();
+        params.set('action', 'PAY_REQUEST');
+        params.set('amount', String(enteredAmount));
+        if (methodId) params.set('paymentMethodId', String(methodId));
+        const url = `${API_BASE}/public/fees?${params.toString()}`;
+
+        setQuoteLoading(true);
+        setQuoteError(null);
+        try {
+            const res = await fetch(url, { cache: 'no-store' });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const j = await res.json();
+            setQuote(j);
+            return j;
+        } catch (e) {
+            const msg = prettyError(e?.message || 'Impossible de calculer les frais.');
+            setQuoteError(msg);
+            throw e;
+        } finally {
+            setQuoteLoading(false);
+        }
+    }, [enteredAmount, methodId]);
 
     /* ---------- result handling ---------- */
     const handleSuccess = (res) => {
@@ -187,7 +208,25 @@ export default function PayForm({
         setStatus('pending');
     };
 
-    /* ---------- submit ---------- */
+    /* ---------- review (quote then confirm) ---------- */
+    const onReview = async () => {
+        if (disabled) return;
+        const v = validate();
+        if (v) {
+            setErr(v);
+            setCanRefresh(true);
+            return;
+        }
+        setQuote(null);
+        setQuoteError(null);
+        try {
+            await fetchQuote();
+            setShowReview(true);
+        } catch {
+            // quoteError already set
+        }
+    };
+
     const onPay = async () => {
         if (disabled) return;
         const v = validate();
@@ -196,8 +235,8 @@ export default function PayForm({
             setCanRefresh(true);
             return;
         }
-        setShowReview(false);
 
+        setShowReview(false);
         setShowMM(false);
         setShowQr(false);
         setResult(null);
@@ -245,66 +284,6 @@ export default function PayForm({
             }
         } finally {
             setBusy(false);
-        }
-    };
-
-    const fetchQuote = useCallback(async (payloadKey, payloadBody) => {
-        if (quoteCache.current.has(payloadKey)) {
-            const cached = quoteCache.current.get(payloadKey);
-            setQuote(cached);
-            setQuoteError(null);
-            return cached;
-        }
-        setQuoteLoading(true);
-        setQuoteError(null);
-        try {
-            const res = await fetch(`${API_BASE}/public/fees`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payloadBody),
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const j = await res.json();
-            setQuote(j);
-            quoteCache.current.set(payloadKey, j);
-            return j;
-        } catch (e) {
-            const msg = prettyError(e?.message || 'Impossible de calculer les frais.');
-            setQuoteError(msg);
-            throw e;
-        } finally {
-            setQuoteLoading(false);
-        }
-    }, []);
-
-    const onReview = async () => {
-        if (disabled) return;
-        const v = validate();
-        if (v) {
-            setErr(v);
-            setCanRefresh(true);
-            return;
-        }
-        setErr(null);
-        const payloadKey = `${methodId}|${isCrypto ? networkId : ''}|${isMobile ? phoneDigits : ''}|${enteredAmount}`;
-        const paymentMethodPayload = {
-            id: methodId,
-            type: selectedMethod?.type,
-            networkId: isCrypto ? networkId : null,
-            accountRef: isMobile ? getAccountNumber() : undefined,
-        };
-        const payloadBody = {
-            amount: enteredAmount,
-            currency,
-            paymentMethod: paymentMethodPayload,
-            type,
-            action: 'PAY_REQUEST',
-        };
-        try {
-            await fetchQuote(payloadKey, payloadBody);
-            setShowReview(true);
-        } catch {
-            // quoteError already set
         }
     };
 
@@ -376,14 +355,7 @@ export default function PayForm({
         <div style={{display: 'flex', flexDirection: 'column', gap: 12, ...(disabled ? {opacity: 0.95} : null)}}>
             {/* Amount */}
             {isDonation ? (
-                <section
-                    className="card"
-                    style={{
-                        borderColor: '#E4E9E2',
-                        background: '#FBFCFA',
-                        ...(disabled ? { opacity: 0.6, pointerEvents: 'none' } : undefined)
-                    }}
-                >
+                <section className="card" style={disabled ? {opacity: 0.6, pointerEvents: 'none'} : undefined}>
                     <label className="label">How much do you want to send</label>
 
                     {!!(Array.isArray(data.presets) && data.presets.length) && (
@@ -422,14 +394,7 @@ export default function PayForm({
                     </div>
                 </section>
             ) : (
-                <section
-                    className="card"
-                    style={{
-                        borderColor: '#E4E9E2',
-                        background: '#FBFCFA',
-                        ...(disabled ? { opacity: 0.6, pointerEvents: 'none' } : undefined)
-                    }}
-                >
+                <section className="card" style={disabled ? {opacity: 0.6, pointerEvents: 'none'} : undefined}>
                     <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', minWidth: 0}}>
                         <span className="label">{type === 'INVOICE' ? 'Total to pay' : 'Amount'}</span>
                         <strong style={{fontSize: 16, whiteSpace: 'nowrap'}}>{money(data.amount, currency)}</strong>
@@ -437,99 +402,62 @@ export default function PayForm({
                 </section>
             )}
 
-            {/* Methods card */}
-            <section
-                className="card card--plain"
-                style={{ borderColor: '#E4E9E2', background: '#FBFCFA' }}
-            >
-                <div className="label" style={{ marginTop: 2 }}>
-                    How do you want to pay?
-                    {disabledReason && (
-                        <span style={{display: 'block', color: '#64748B', fontSize: 14, marginTop: 4}}>
-                            {disabledReason}
-                        </span>
-                    )}
-                </div>
-
-                {/* Accordions — all collapsed by default; only user click toggles them */}
-                <div style={disabled ? {opacity: 0.6, pointerEvents: 'none'} : undefined}>
-                    {GROUP_ORDER.map((t) => {
-                        const list = grouped[t];
-                        if (!list?.length) return null;
-                        const logoSize = 36;
-
-                        return (
-                            <Accordion
-                                key={t}
-                                title={labelForType(t)}
-                                typeKey={t}
-                                open={!!expanded[t]}
-                                onToggle={onToggleAccordion}
-                                disabled={disabled}
-                            >
-                                {renderGroupTiles(t, list, logoSize)}
-
-                                {/* Mobile phone field stays mounted only inside MOBILE_MONEY section */}
-                                {t === 'MOBILE_MONEY' && isMobile && (
-                                    <div style={{marginTop: 8}}>
-                                        <MobilePhoneField
-                                            callingCode={callingCode}
-                                            ref={phoneRef}
-                                            value={phoneDigits}
-                                            onChangeDigits={(digits) => {
-                                                const only = String(digits || '').replace(/\D+/g, '').slice(0, 9);
-                                                setPhoneDigits(only);
-                                                setPhoneValid(only.length >= 7 && only.length <= 9);
-                                            }}
-                                        />
-                                    </div>
-                                )}
-
-                                {/* Crypto networks */}
-                                {t === 'CRYPTO' && isCrypto && (
-                                    <div style={{marginTop: 10}}>
-                                        <label className="label" style={{marginBottom: 6}}>Network</label>
-                                        <NetworkPills items={networks} selectedId={networkId} onSelect={setNetworkId}
-                                                      disabled={disabled}/>
-                                    </div>
-                                )}
-                            </Accordion>
-                        );
-                    })}
-                </div>
-            </section>
-
-            {/* Summary */}
-            <section
-                className="card card--plain"
-                style={{ borderColor: '#E4E9E2', background: '#FBFCFA' }}
-            >
-                <div className="label" style={{ marginBottom: 8 }}>Résumé</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <SummaryRow label="Montant" value={money(enteredAmount, currency)} />
-                    <SummaryRow
-                        label="Frais"
-                        value={summaryFees != null ? money(summaryFees, currency) : 'Calculés à la confirmation'}
-                        muted={summaryFees == null}
-                    />
-                    <SummaryRow label="Total estimé" value={money(summaryTotal, currency)} bold />
-                    {selectedMethod && (
-                        <SummaryRow label="Méthode" value={selectedMethod.name} />
-                    )}
-                    {isCrypto && networkId && (
-                        <SummaryRow
-                            label="Réseau"
-                            value={networks.find(n => n.id === networkId)?.displayName || networks.find(n => n.id === networkId)?.name}
-                        />
-                    )}
-                    {isMobile && phoneDigits && (
-                        <SummaryRow label="Téléphone" value={formatPhone(getAccountNumber())} />
-                    )}
-                </div>
-                {quoteError && (
-                    <p className="err" style={{ marginTop: 8 }}>{quoteError}</p>
+            {/* Methods header */}
+            <div className="label" style={{marginTop: 2,  color: ''}}>
+                How do you want to pay?
+                {disabledReason && (
+                    <span style={{display: 'block', color: '#64748B', fontSize: 14, marginTop: 4}}>
+            {disabledReason}
+          </span>
                 )}
-            </section>
+            </div>
+
+            {/* Accordions — all collapsed by default; only user click toggles them */}
+            <div style={disabled ? {opacity: 0.6, pointerEvents: 'none'} : undefined}>
+                {GROUP_ORDER.map((t) => {
+                    const list = grouped[t];
+                    if (!list?.length) return null;
+                    const logoSize = 36;
+
+                    return (
+                        <Accordion
+                            key={t}
+                            title={labelForType(t)}
+                            typeKey={t}
+                            open={!!expanded[t]}
+                            onToggle={onToggleAccordion}
+                            disabled={disabled}
+                        >
+                            {renderGroupTiles(t, list, logoSize)}
+
+                            {/* Mobile phone field stays mounted only inside MOBILE_MONEY section */}
+                            {t === 'MOBILE_MONEY' && isMobile && (
+                                <div style={{marginTop: 8}}>
+                                    <MobilePhoneField
+                                        callingCode={callingCode}
+                                        ref={phoneRef}
+                                        value={phoneDigits}
+                                        onChangeDigits={(digits) => {
+                                            const only = String(digits || '').replace(/\D+/g, '').slice(0, 9);
+                                            setPhoneDigits(only);
+                                            setPhoneValid(only.length >= 7 && only.length <= 9);
+                                        }}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Crypto networks */}
+                            {t === 'CRYPTO' && isCrypto && (
+                                <div style={{marginTop: 10}}>
+                                    <label className="label" style={{marginBottom: 6}}>Network</label>
+                                    <NetworkPills items={networks} selectedId={networkId} onSelect={setNetworkId}
+                                                  disabled={disabled}/>
+                                </div>
+                            )}
+                        </Accordion>
+                    );
+                })}
+            </div>
 
             {/* Contact details */}
             {showContact() && (
@@ -567,14 +495,14 @@ export default function PayForm({
                 <ReviewModal
                     onClose={() => setShowReview(false)}
                     onConfirm={onPay}
-                    amount={isDonation ? getDonationAmountNumber() : data.amount}
+                    amount={enteredAmount}
+                    fees={fees}
+                    total={totalToPay}
                     currency={currency}
                     method={selectedMethod}
                     network={isCrypto ? networks.find(n => n.id === networkId) : null}
                     account={isMobile ? getAccountNumber() : null}
-                    fees={summaryFees}
-                    total={summaryTotal}
-                    canConfirm={!busy && !quoteLoading}
+                    canConfirm={!busy}
                 />
             )}
 
@@ -609,7 +537,7 @@ export default function PayForm({
                     opacity: (busy || quoteLoading || disabled || !methodId || (isCrypto && !networkId) || !amountReady() || (isMobile && !phoneValid)) ? .6 : 1
                 }}
             >
-                {(busy || quoteLoading) ? 'Calcul en cours…' : 'Review & Pay'}
+                {quoteLoading ? 'Calcul en cours…' : busy ? 'Sending…' : 'Review & Pay'}
             </button>
 
             {/* Status */}
@@ -621,49 +549,25 @@ export default function PayForm({
     );
 }
 
-function SummaryRow({ label, value, bold = false, muted = false }) {
+function ReviewModal({ onClose, onConfirm, amount, fees, total, currency, method, network, account, canConfirm }) {
     return (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span className="label" style={{ color: muted ? '#6D7A6D' : undefined }}>{label}</span>
-            <span style={{ fontWeight: bold ? 800 : 700, color: muted ? '#6D7A6D' : '#102110' }}>{value || '—'}</span>
-        </div>
-    );
-}
-
-function ReviewModal({ onClose, onConfirm, amount, currency, method, network, account, fees, total, canConfirm }) {
-    return (
-        <div
-            role="dialog"
-            aria-modal="true"
-            style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(0,0,0,0.75)', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
-            onClick={onClose}
-        >
-            <div
-                onClick={(e)=>e.stopPropagation()}
-                style={{ width:'100%', maxWidth:420, borderRadius:16, background:'#fff', padding:16, boxShadow:'0 20px 40px rgba(0,0,0,0.35)' }}
-            >
+        <div role="dialog" aria-modal="true"
+             style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(0,0,0,0.75)', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+             onClick={onClose}>
+            <div onClick={(e)=>e.stopPropagation()}
+                 style={{ width:'100%', maxWidth:420, borderRadius:16, background:'#fff', padding:16, boxShadow:'0 20px 40px rgba(0,0,0,0.35)' }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <h3 className="card-title" style={{ margin: 0 }}>Revue rapide</h3>
-                    <button onClick={onClose} className="tile" style={{ padding: '6px 10px' }}>Fermer</button>
+                    <h3 className="card-title" style={{ margin:0 }}>Confirmer</h3>
+                    <button onClick={onClose} className="tile" style={{ padding:'6px 10px' }}>Fermer</button>
                 </div>
 
                 <div style={{ marginTop: 12, display:'flex', flexDirection:'column', gap:10 }}>
-                    <SummaryRow label="Montant" value={money(amount, currency)} />
-                    {method && (
-                        <SummaryRow label="Méthode" value={method.name} />
-                    )}
-                    {network && (
-                        <SummaryRow label="Réseau" value={network.displayName || network.name} />
-                    )}
-                    {account && (
-                        <SummaryRow label="Compte" value={formatPhone(account)} />
-                    )}
-                    <SummaryRow
-                        label="Frais"
-                        value={fees != null ? money(fees, currency) : '—'}
-                        muted={fees == null}
-                    />
-                    <SummaryRow label="Total" value={money(total || amount, currency)} bold />
+                    <SummaryLine label="Montant" value={money(amount, currency)} />
+                    <SummaryLine label="Frais" value={fees != null ? money(fees, currency) : '—'} />
+                    <SummaryLine label="Total à payer" value={money(total || amount, currency)} bold />
+                    {method && <SummaryLine label="Méthode" value={method.name} />}
+                    {network && <SummaryLine label="Réseau" value={network.displayName || network.name} />}
+                    {account && <SummaryLine label="Compte" value={account} />}
                 </div>
 
                 <div style={{ display:'flex', gap:10, marginTop:14, flexWrap:'wrap' }}>
@@ -680,6 +584,15 @@ function ReviewModal({ onClose, onConfirm, amount, currency, method, network, ac
                     </button>
                 </div>
             </div>
+        </div>
+    );
+}
+
+function SummaryLine({ label, value, bold }) {
+    return (
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <span className="label">{label}</span>
+            <span style={{ fontWeight: bold ? 800 : 700 }}>{value}</span>
         </div>
     );
 }
