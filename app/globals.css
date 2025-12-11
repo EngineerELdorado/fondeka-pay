@@ -306,3 +306,8 @@ html { scroll-behavior: smooth; }
     50%{ transform: translateY(-12px) scale(1.02); opacity: 0.85; }
     100%{ transform: translateY(0px) scale(1); opacity: 0.65; }
 }
+
+@keyframes sheetUp{
+    from{ transform: translateY(18px); opacity: 0.95; }
+    to{ transform: translateY(0); opacity: 1; }
+}

@@ -567,11 +567,23 @@ export default function PayForm({
 
 function ReviewModal({ onClose, onConfirm, amount, fees, total, currency, method, network, account, canConfirm }) {
     return (
-        <div role="dialog" aria-modal="true"
-             style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(0,0,0,0.75)', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
-             onClick={onClose}>
-            <div onClick={(e)=>e.stopPropagation()}
-                 style={{ width:'100%', maxWidth:420, borderRadius:16, background:'#fff', padding:16, boxShadow:'0 20px 40px rgba(0,0,0,0.35)' }}>
+        <div
+            role="dialog"
+            aria-modal="true"
+            style={{ position:'fixed', inset:0, zIndex:9999, background:'rgba(0,0,0,0.5)', display:'flex', justifyContent:'center', alignItems:'flex-end', padding:0 }}
+            onClick={onClose}
+        >
+            <div
+                onClick={(e)=>e.stopPropagation()}
+                style={{
+                    width:'100%', maxWidth:520,
+                    borderTopLeftRadius:18, borderTopRightRadius:18,
+                    background:'#fff',
+                    padding:'16px 16px 20px',
+                    boxShadow:'0 -12px 30px rgba(0,0,0,0.25)',
+                    animation:'sheetUp .25s ease'
+                }}
+            >
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                     <h3 className="card-title" style={{ margin:0 }}>Confirmer</h3>
                     <button onClick={onClose} className="tile" style={{ padding:'6px 10px' }}>Fermer</button>
@@ -587,7 +599,7 @@ function ReviewModal({ onClose, onConfirm, amount, fees, total, currency, method
                 </div>
 
                 <div style={{ display:'flex', gap:10, marginTop:14, flexWrap:'wrap' }}>
-                    <button className="tile" onClick={onClose} style={{ padding:'10px 12px' }}>
+                    <button className="tile" onClick={onClose} style={{ padding:'10px 12px', flex:1, minWidth:120 }}>
                         Retour
                     </button>
                     <button
