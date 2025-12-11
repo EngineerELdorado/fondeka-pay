@@ -130,3 +130,179 @@ body{
     .chip{ padding: 10px 14px; font-size: 16px; }
 }
 html { scroll-behavior: smooth; }
+
+/* Home / hero */
+.page--home{
+    background:
+        radial-gradient(circle at 12% 18%, #E9F3EC 0%, transparent 32%),
+        radial-gradient(circle at 88% 10%, #F3F8F5 0%, transparent 25%),
+        #fff;
+}
+.brand-header{
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin: 6px 0 12px;
+}
+.brand-logo{
+    position: relative;
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    background: var(--brand-primary);
+    box-shadow: 0 2px 6px rgba(79,128,92,0.20);
+    flex: 0 0 auto;
+}
+.brand-logo::after{
+    content: '';
+    position: absolute;
+    right: 4px;
+    top: 4px;
+    width: 6px;
+    height: 6px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+}
+.brand-name{
+    font-weight: 900;
+    letter-spacing: 0.3px;
+    color: var(--brand-primary);
+    font-size: 24px;
+    line-height: 24px;
+}
+.hero-block{
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--brand-border);
+    border-radius: 18px;
+    padding: 18px;
+    background: linear-gradient(140deg, #F8FBF9 0%, #FFFFFF 70%);
+    box-shadow: 0 12px 36px rgba(79,128,92,0.12);
+}
+.hero-grid{
+    display: grid;
+    gap: 14px;
+    grid-template-columns: 1fr;
+    align-items: center;
+}
+@media (max-width: 720px){
+    .hero-grid{ grid-template-columns: 1fr; }
+}
+.floating-orb{
+    position: absolute;
+    filter: blur(18px);
+    opacity: 0.65;
+    animation: floaty 12s ease-in-out infinite;
+}
+.orb-1{ width: 180px; height: 180px; background: #C8E1D2; top: -40px; right: -20px; animation-delay: 0.4s; }
+.orb-2{ width: 0; height: 0; }
+
+.hero-badge{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #0f172a;
+    color: #fff;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 14px;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.16);
+}
+.hero-actions{
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 14px 0;
+}
+.hero-btn{
+    width: auto;
+    min-width: 164px;
+    height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.hero-secondary{
+    background: #0f172a;
+    color: #fff;
+    border-color: #0f172a;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 130px;
+    height: 46px;
+}
+.pill-row{
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 10px 0;
+}
+.pill{
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid var(--brand-border);
+    font-weight: 800;
+    font-size: 13px;
+    color: #0f172a;
+}
+
+.feature-section{ background: #fff; }
+.feature-grid{
+    display: grid;
+    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.feature-card{
+    padding: 12px;
+    border: 1px solid var(--brand-border);
+    border-radius: 14px;
+    background: var(--brand-primary-soft-2);
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    transition: transform .18s ease, box-shadow .18s ease;
+}
+.feature-card:hover{
+    transform: translateY(-2px);
+    box-shadow: 0 10px 26px rgba(79,128,92,0.16);
+}
+.feature-dot{
+    width: 12px;
+    height: 12px;
+    border-radius: 6px;
+    background: var(--brand-primary);
+    box-shadow: 0 0 0 6px rgba(79,128,92,0.12);
+}
+
+.steps-section{ background: #fff; }
+.step-row{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--brand-border);
+}
+.step-row:last-child{ border-bottom: none; }
+.step-index{
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    background: var(--brand-primary-soft);
+    color: #0f172a;
+    font-weight: 900;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@keyframes floaty{
+    0%{ transform: translateY(0px) scale(1); opacity: 0.65; }
+    50%{ transform: translateY(-12px) scale(1.02); opacity: 0.85; }
+    100%{ transform: translateY(0px) scale(1); opacity: 0.65; }
+}
