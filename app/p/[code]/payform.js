@@ -70,7 +70,7 @@ export default function PayForm({
     const [amountValid, setAmountValid] = useState(() => !isDonation ? Number(data.amount) > 0 : false);
     const [phoneValid, setPhoneValid] = useState(false);
     const [phoneDigits, setPhoneDigits] = useState(''); // controlled digits (without +country)
-    const [anonymous, setAnonymous] = useState(false);
+    const [anonymous, setAnonymous] = useState(true);
 
     // ACCORDIONS: all collapsed by default; ONLY user clicks toggle them
     const [expanded, setExpanded] = useState(() => {
