@@ -70,17 +70,21 @@ export default function PayForm({
     const [amountValid, setAmountValid] = useState(() => !isDonation ? Number(data.amount) > 0 : false);
     const [phoneValid, setPhoneValid] = useState(false);
     const [phoneDigits, setPhoneDigits] = useState(''); // controlled digits (without +country)
+    const [anonymous, setAnonymous] = useState(false);
 
     // ACCORDIONS: all collapsed by default; ONLY user clicks toggle them
     const [expanded, setExpanded] = useState(() => {
         const init = {};
-        GROUP_ORDER.forEach(t => {
-            init[t] = false;
-        });
+        GROUP_ORDER.forEach(t => { init[t] = false; });
         return init;
     });
     const onToggleAccordion = useCallback((typeKey) => {
-        setExpanded(prev => ({...prev, [typeKey]: !prev[typeKey]}));
+        setExpanded(prev => {
+            const next = {};
+            GROUP_ORDER.forEach(t => { next[t] = false; });
+            next[typeKey] = !prev[typeKey];
+            return next;
+        });
     }, []);
 
     // NOTE: we no longer auto-open accordions when a method is selected.
@@ -255,7 +259,7 @@ export default function PayForm({
                 amount: amountToSend,
                 payerReference: (emailRef.current?.value || '').trim() || undefined,
                 payerDisplayName: (nameRef.current?.value || '').trim() || undefined,
-                payerAnonymous: false,
+                payerAnonymous: anonymous,
                 idempotencyKey: idemKey,
             };
             return http(`${API_BASE}/public/payment-requests/pay`, {
@@ -330,15 +334,17 @@ export default function PayForm({
     const renderGroupTiles = (typeKey, list, logoSize) => (
         <SquareGrid>
             {list.map((m) => {
-                const t = String(m.type || '').toUpperCase();
                 return (
                     <SquareTile
                         key={m.id}
                         active={methodId === m.id}
                         onClick={() => {
                             setMethodId(m.id);
-                            // DO NOT auto-toggle accordions.
-                            // If the user is in Mobile Money and clicks a tile, we can gently focus the phone field.
+                            // Open only this group
+                            const next = {};
+                            GROUP_ORDER.forEach(t => { next[t] = false; });
+                            next[typeKey] = true;
+                            setExpanded(next);
                             if (typeKey === 'MOBILE_MONEY') setTimeout(() => phoneRef.current?.focus?.(), 0);
                         }}
                         logoUrl={m.logoUrl}
@@ -403,21 +409,22 @@ export default function PayForm({
             )}
 
             {/* Methods header */}
-            <div className="label" style={{marginTop: 2,  color: ''}}>
+            <div className="label" style={{marginTop: 2}}>
                 How do you want to pay?
                 {disabledReason && (
                     <span style={{display: 'block', color: '#64748B', fontSize: 14, marginTop: 4}}>
-            {disabledReason}
-          </span>
+                        {disabledReason}
+                    </span>
                 )}
             </div>
 
-            {/* Accordions — all collapsed by default; only user click toggles them */}
+            {/* Accordions — only one open at a time; each has its own form/CTA */}
             <div style={disabled ? {opacity: 0.6, pointerEvents: 'none'} : undefined}>
                 {GROUP_ORDER.map((t) => {
                     const list = grouped[t];
                     if (!list?.length) return null;
                     const logoSize = 36;
+                    const activeGroup = !!list.find(m => m.id === methodId);
 
                     return (
                         <Accordion
@@ -431,13 +438,13 @@ export default function PayForm({
                             {renderGroupTiles(t, list, logoSize)}
 
                             {/* Mobile phone field stays mounted only inside MOBILE_MONEY section */}
-                            {t === 'MOBILE_MONEY' && isMobile && (
-                                <div style={{marginTop: 8}}>
-                                    <MobilePhoneField
-                                        callingCode={callingCode}
-                                        ref={phoneRef}
-                                        value={phoneDigits}
-                                        onChangeDigits={(digits) => {
+                                {t === 'MOBILE_MONEY' && isMobile && (
+                                    <div style={{marginTop: 14}}>
+                                        <MobilePhoneField
+                                            callingCode={callingCode}
+                                            ref={phoneRef}
+                                            value={phoneDigits}
+                                            onChangeDigits={(digits) => {
                                             const only = String(digits || '').replace(/\D+/g, '').slice(0, 9);
                                             setPhoneDigits(only);
                                             setPhoneValid(only.length >= 7 && only.length <= 9);
@@ -454,22 +461,50 @@ export default function PayForm({
                                                   disabled={disabled}/>
                                 </div>
                             )}
+
+                            {/* Contact details + CTA scoped to this section */}
+                                {activeGroup && showContact() && (
+                                    <div style={{marginTop: 12, display:'flex', flexDirection:'column', gap:10}}>
+                                        <label style={{ display:'inline-flex', alignItems:'center', gap:8, fontWeight:700, color:'#0f172a' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={anonymous}
+                                                onChange={(e) => setAnonymous(e.currentTarget.checked)}
+                                                style={{ width:16, height:16 }}
+                                            />
+                                            Payer en anonyme
+                                        </label>
+                                        {!anonymous && (
+                                            <div style={{display: 'flex', gap: 8, minWidth: 0}}>
+                                                <input ref={nameRef} className="input" placeholder="Nom (optionnel)"
+                                                       style={{flex: 1, minWidth: 0}}/>
+                                                <input ref={emailRef} className="input" placeholder="Email (optionnel)"
+                                                       style={{flex: 1, minWidth: 0}}/>
+                                            </div>
+                                        )}
+                                        <button
+                                            className="btn btn--primary"
+                                            onClick={onReview}
+                                            disabled={
+                                                busy || quoteLoading || disabled ||
+                                            !methodId ||
+                                            (isCrypto && !networkId) ||
+                                            !amountReady() ||
+                                            (isMobile && !phoneValid)
+                                        }
+                                        style={{
+                                            fontSize: 16,
+                                            opacity: (busy || quoteLoading || disabled || !methodId || (isCrypto && !networkId) || !amountReady() || (isMobile && !phoneValid)) ? .6 : 1
+                                        }}
+                                    >
+                                        {quoteLoading ? 'Calcul en cours…' : busy ? 'Sending…' : 'Review & Pay'}
+                                    </button>
+                                </div>
+                            )}
                         </Accordion>
                     );
                 })}
             </div>
-
-            {/* Contact details */}
-            {showContact() && (
-                <section className="card card--plain" style={{background: '#fff'}}>
-                    <div style={{display: 'flex', gap: 8, minWidth: 0}}>
-                        <input ref={nameRef} className="input" placeholder="Nom (optionnel)"
-                               style={{flex: 1, minWidth: 0}}/>
-                        <input ref={emailRef} className="input" placeholder="Email (optionnel)"
-                               style={{flex: 1, minWidth: 0}}/>
-                    </div>
-                </section>
-            )}
 
             {/* Modals */}
             {result?.rail === 'MM' && (
@@ -520,25 +555,6 @@ export default function PayForm({
                     )}
                 </section>
             )}
-
-            {/* CTA */}
-            <button
-                className="btn btn--primary"
-                onClick={onReview}
-                disabled={
-                    busy || quoteLoading || disabled ||
-                    !methodId ||
-                    (isCrypto && !networkId) ||
-                    !amountReady() ||
-                    (isMobile && !phoneValid)
-                }
-                style={{
-                    fontSize: 16,
-                    opacity: (busy || quoteLoading || disabled || !methodId || (isCrypto && !networkId) || !amountReady() || (isMobile && !phoneValid)) ? .6 : 1
-                }}
-            >
-                {quoteLoading ? 'Calcul en cours…' : busy ? 'Sending…' : 'Review & Pay'}
-            </button>
 
             {/* Status */}
             {status === 'pending' && <p className="note">Confirmation en cours…</p>}
