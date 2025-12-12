@@ -46,9 +46,12 @@ export default function LightboxClient({ ytId, cover, otherImages = [], story, i
                 <section className="card card--plain" style={{ background: '#fff' }}>
                     <div
                         style={{
-                            display: 'grid',
-                            gridTemplateColumns: otherImages.length >= 3 ? '1fr 1fr 1fr' : '1fr 1fr',
+                            display: otherImages.length > 3 ? 'grid' : 'grid',
+                            gridTemplateColumns: otherImages.length > 3 ? 'repeat(3, 1fr)' : (otherImages.length >= 3 ? '1fr 1fr 1fr' : '1fr 1fr'),
                             gap: 8,
+                            overflowX: otherImages.length > 3 ? 'auto' : 'visible',
+                            paddingBottom: otherImages.length > 3 ? 4 : 0,
+                            gridAutoFlow: otherImages.length > 3 ? 'column' : 'row'
                         }}
                     >
                         {otherImages.map((src, idx) => (
@@ -57,7 +60,14 @@ export default function LightboxClient({ ytId, cover, otherImages = [], story, i
                                 src={src}
                                 alt={`Image ${idx + 2}`}
                                 onClick={() => onOpenIndex( (cover ? 1 : 0) + idx )}
-                                style={{ width: '100%', height: 92, borderRadius: 12, objectFit: 'cover', cursor: 'zoom-in' }}
+                                style={{
+                                    width: '100%',
+                                    height: 92,
+                                    borderRadius: 12,
+                                    objectFit: 'cover',
+                                    cursor: 'zoom-in',
+                                    minWidth: otherImages.length > 3 ? 140 : 'auto'
+                                }}
                             />
                         ))}
                     </div>
