@@ -463,30 +463,30 @@ export default function PayForm({
                             )}
 
                             {/* Contact details + CTA scoped to this section */}
-                                {activeGroup && showContact() && (
-                                    <div style={{marginTop: 12, display:'flex', flexDirection:'column', gap:10}}>
-                                        <label style={{ display:'inline-flex', alignItems:'center', gap:8, fontWeight:700, color:'#0f172a' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={anonymous}
-                                                onChange={(e) => setAnonymous(e.currentTarget.checked)}
-                                                style={{ width:16, height:16 }}
-                                            />
-                                            Payer en anonyme
-                                        </label>
-                                        {!anonymous && (
-                                            <div style={{display: 'flex', gap: 8, minWidth: 0}}>
-                                                <input ref={nameRef} className="input" placeholder="Nom (optionnel)"
-                                                       style={{flex: 1, minWidth: 0}}/>
-                                                <input ref={emailRef} className="input" placeholder="Email (optionnel)"
-                                                       style={{flex: 1, minWidth: 0}}/>
-                                            </div>
-                                        )}
-                                        <button
-                                            className="btn btn--primary"
-                                            onClick={onReview}
-                                            disabled={
-                                                busy || quoteLoading || disabled ||
+                            {activeGroup && (
+                                <div style={{marginTop: 12, display:'flex', flexDirection:'column', gap:10}}>
+                                    <label style={{ display:'inline-flex', alignItems:'center', gap:8, fontWeight:700, color:'#0f172a' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={anonymous}
+                                            onChange={(e) => setAnonymous(e.currentTarget.checked)}
+                                            style={{ width:16, height:16 }}
+                                        />
+                                        Payer en anonyme
+                                    </label>
+                                    {!anonymous && (
+                                        <div style={{display: 'flex', gap: 8, minWidth: 0}}>
+                                            <input ref={nameRef} className="input" placeholder="Nom (optionnel)"
+                                                   style={{flex: 1, minWidth: 0}}/>
+                                            <input ref={emailRef} className="input" placeholder="Email (optionnel)"
+                                                   style={{flex: 1, minWidth: 0}}/>
+                                        </div>
+                                    )}
+                                    <button
+                                        className="btn btn--primary"
+                                        onClick={onReview}
+                                        disabled={
+                                            busy || quoteLoading || disabled ||
                                             !methodId ||
                                             (isCrypto && !networkId) ||
                                             !amountReady() ||
