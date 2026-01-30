@@ -458,6 +458,22 @@ export default function PayForm({
                         disabled={disabled}
                     >
                         <span style={{fontWeight: 700}}>{selectedCountry.name}</span>
+                        <svg
+                            aria-hidden="true"
+                            width="14"
+                            height="14"
+                            viewBox="0 0 20 20"
+                            fill="none"
+                            style={{display: 'block'}}
+                        >
+                            <path
+                                d="M5 7l5 5 5-5"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                        </svg>
                     </button>
                 </div>
                 {disabledReason && (
