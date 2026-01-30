@@ -630,26 +630,22 @@ export default function PayForm({
 }
 
 const COUNTRIES = (() => {
-    try {
-        const hasIntlRegions =
-            typeof Intl !== 'undefined' &&
-            typeof Intl.supportedValuesOf === 'function' &&
-            typeof Intl.DisplayNames === 'function';
+    const hasIntlRegions =
+        typeof Intl !== 'undefined' &&
+        typeof Intl.supportedValuesOf === 'function' &&
+        typeof Intl.DisplayNames === 'function';
 
-        if (hasIntlRegions) {
-            const displayNames = new Intl.DisplayNames(['en'], {type: 'region'});
-            const codes = Intl.supportedValuesOf('region').filter((code) => code.length === 2);
-            const mapped = codes.map((code) => ({
-                code,
-                name: displayNames.of(code) || code,
-            }));
-            const rest = mapped
-                .filter((country) => country.code !== 'CD')
-                .sort((a, b) => a.name.localeCompare(b.name));
-            return [{code: 'CD', name: 'DR Congo'}, ...rest];
-        }
-    } catch (error) {
-        console.warn('Intl region list unavailable, using fallback.', error);
+    if (hasIntlRegions) {
+        const displayNames = new Intl.DisplayNames(['en'], {type: 'region'});
+        const codes = Intl.supportedValuesOf('region').filter((code) => code.length === 2);
+        const mapped = codes.map((code) => ({
+            code,
+            name: displayNames.of(code) || code,
+        }));
+        const rest = mapped
+            .filter((country) => country.code !== 'CD')
+            .sort((a, b) => a.name.localeCompare(b.name));
+        return [{code: 'CD', name: 'DR Congo'}, ...rest];
     }
 
     return [
