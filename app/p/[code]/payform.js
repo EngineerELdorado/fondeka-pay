@@ -10,7 +10,7 @@ import {
     prettyError,
     shouldRefreshOnError,
 } from './utils/payform-helpers';
-import COUNTRIES from '../../../src/data/countries';
+import COUNTRY_DATA from '../../../src/data/countries';
 
 import Accordion from './components/Accordion';
 import MobilePhoneField from './components/MobilePhoneField';
@@ -99,8 +99,8 @@ export default function PayForm({
 
     const filteredCountries = useMemo(() => {
         const query = countryQuery.trim().toLowerCase();
-        if (!query) return COUNTRIES;
-        return COUNTRIES.filter((country) => (
+        if (!query) return COUNTRY_OPTIONS;
+        return COUNTRY_OPTIONS.filter((country) => (
             country.name.toLowerCase().includes(query) ||
             country.code.toLowerCase().includes(query)
         ));
@@ -629,55 +629,24 @@ export default function PayForm({
     );
 }
 
-const COUNTRIES = (() => {
-    const hasIntlRegions =
-        typeof Intl !== 'undefined' &&
-        typeof Intl.supportedValuesOf === 'function' &&
-        typeof Intl.DisplayNames === 'function';
+const COUNTRY_OPTIONS = COUNTRY_DATA.map((country) => ({
+    code: country.cca2,
+    name: country.name,
+}));
 
-    if (hasIntlRegions) {
-        const displayNames = new Intl.DisplayNames(['en'], {type: 'region'});
-        const codes = Intl.supportedValuesOf('region').filter((code) => code.length === 2);
-        const mapped = codes.map((code) => ({
-            code,
-            name: displayNames.of(code) || code,
-        }));
-        const rest = mapped
-            .filter((country) => country.code !== 'CD')
-            .sort((a, b) => a.name.localeCompare(b.name));
-        return [{code: 'CD', name: 'DR Congo'}, ...rest];
+const COUNTRY_CALLING_CODES = COUNTRY_DATA.reduce((acc, country) => {
+    if (country.callingCode) {
+        acc[country.cca2] = country.callingCode;
     }
+    return acc;
+}, {});
 
-    return [
-        {code: 'CD', name: 'DR Congo'},
-        {code: 'ZA', name: 'South Africa'},
-        {code: 'KE', name: 'Kenya'},
-        {code: 'NG', name: 'Nigeria'},
-        {code: 'UG', name: 'Uganda'},
-        {code: 'RW', name: 'Rwanda'},
-        {code: 'TZ', name: 'Tanzania'},
-        {code: 'GH', name: 'Ghana'},
-        {code: 'CI', name: "Côte d’Ivoire"},
-        {code: 'CM', name: 'Cameroon'},
-        {code: 'SN', name: 'Senegal'},
-        {code: 'MA', name: 'Morocco'},
-        {code: 'EG', name: 'Egypt'},
-        {code: 'FR', name: 'France'},
-        {code: 'GB', name: 'United Kingdom'},
-        {code: 'US', name: 'United States'},
-        {code: 'CA', name: 'Canada'},
-        {code: 'BR', name: 'Brazil'},
-        {code: 'IN', name: 'India'},
-        {code: 'CN', name: 'China'},
-        {code: 'JP', name: 'Japan'},
-        {code: 'AU', name: 'Australia'},
-    ];
-})();
-
-const COUNTRIES_BY_CODE = COUNTRIES.reduce((acc, country) => {
+const COUNTRIES_BY_CODE = COUNTRY_OPTIONS.reduce((acc, country) => {
     acc[country.code] = country;
     return acc;
 }, {});
+
+const mapIsoToCallingCode = (code) => COUNTRY_CALLING_CODES[code] || null;
 
 function CountryPickerModal({open, onClose, countries, query, onQueryChange, selectedCode, onSelect}) {
     if (!open) return null;
