@@ -37,8 +37,13 @@ export default function PayForm({
 
     const [checkoutToken, setCheckoutToken] = useState(data.checkoutToken || '');
 
-    const [countryCode] = useState((detectedCountry || 'CD').toUpperCase());
+    const [countryCode, setCountryCode] = useState((detectedCountry || 'CD').toUpperCase());
+    const [userSelectedCountry, setUserSelectedCountry] = useState(false);
     const callingCode = useMemo(() => mapIsoToCallingCode(countryCode) || '243', [countryCode]);
+    const selectedCountry = useMemo(
+        () => COUNTRIES_BY_CODE[countryCode] || {code: countryCode, name: countryCode},
+        [countryCode]
+    );
 
     // Hooks now DO NOT auto-select a method; methodId starts as null
     const {methods, grouped, methodId, setMethodId, error: methodsError} = usePaymentMethods(countryCode);
@@ -66,18 +71,23 @@ export default function PayForm({
     const [quoteLoading, setQuoteLoading] = useState(false);
     const [quoteError, setQuoteError] = useState(null);
 
+    const [showCountryPicker, setShowCountryPicker] = useState(false);
+    const [countryQuery, setCountryQuery] = useState('');
+
     // validity + controlled phone
     const [amountValid, setAmountValid] = useState(() => !isDonation ? Number(data.amount) > 0 : false);
     const [phoneValid, setPhoneValid] = useState(false);
     const [phoneDigits, setPhoneDigits] = useState(''); // controlled digits (without +country)
     const [anonymous, setAnonymous] = useState(true);
 
-    // ACCORDIONS: all collapsed by default; ONLY user clicks toggle them
-    const [expanded, setExpanded] = useState(() => {
+    const makeCollapsedState = useCallback(() => {
         const init = {};
         GROUP_ORDER.forEach(t => { init[t] = false; });
         return init;
-    });
+    }, []);
+
+    // ACCORDIONS: all collapsed by default; ONLY user clicks toggle them
+    const [expanded, setExpanded] = useState(() => makeCollapsedState());
     const onToggleAccordion = useCallback((typeKey) => {
         setExpanded(prev => {
             const next = {};
@@ -86,6 +96,15 @@ export default function PayForm({
             return next;
         });
     }, []);
+
+    const filteredCountries = useMemo(() => {
+        const query = countryQuery.trim().toLowerCase();
+        if (!query) return COUNTRIES;
+        return COUNTRIES.filter((country) => (
+            country.name.toLowerCase().includes(query) ||
+            country.code.toLowerCase().includes(query)
+        ));
+    }, [countryQuery]);
 
     // NOTE: we no longer auto-open accordions when a method is selected.
     // We also don't pre-select any method.
@@ -330,6 +349,21 @@ export default function PayForm({
         if (networksError) setErr(networksError);
     }, [methodsError, networksError]);
 
+    useEffect(() => {
+        if (userSelectedCountry) return;
+        if (!detectedCountry) return;
+        setCountryCode(detectedCountry.toUpperCase());
+    }, [detectedCountry, userSelectedCountry]);
+
+    useEffect(() => {
+        setExpanded(makeCollapsedState());
+        setMethodId(null);
+        setNetworkId(null);
+        setPhoneDigits('');
+        setPhoneValid(false);
+        setCountryQuery('');
+    }, [countryCode, makeCollapsedState, setMethodId, setNetworkId]);
+
     /* ---------- render helpers ---------- */
     const renderGroupTiles = (typeKey, list, logoSize) => (
         <SquareGrid>
@@ -409,8 +443,23 @@ export default function PayForm({
             )}
 
             {/* Methods header */}
-            <div className="label" style={{marginTop: 2}}>
-                How do you want to pay?
+            <div style={{marginTop: 2}}>
+                <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
+                    <span className="label" style={{marginBottom: 0, flex: 1}}>How do you want to pay?</span>
+                    <button
+                        type="button"
+                        className="chip"
+                        onClick={() => {
+                            if (disabled) return;
+                            setCountryQuery('');
+                            setShowCountryPicker(true);
+                        }}
+                        style={{display: 'inline-flex', alignItems: 'center', gap: 6}}
+                        disabled={disabled}
+                    >
+                        <span style={{fontWeight: 700}}>{selectedCountry.name}</span>
+                    </button>
+                </div>
                 {disabledReason && (
                     <span style={{display: 'block', color: '#64748B', fontSize: 14, marginTop: 4}}>
                         {disabledReason}
@@ -540,6 +589,21 @@ export default function PayForm({
                     canConfirm={!busy}
                 />
             )}
+            {showCountryPicker && (
+                <CountryPickerModal
+                    open={showCountryPicker}
+                    onClose={() => setShowCountryPicker(false)}
+                    countries={filteredCountries}
+                    query={countryQuery}
+                    onQueryChange={setCountryQuery}
+                    selectedCode={countryCode}
+                    onSelect={(country) => {
+                        setUserSelectedCountry(true);
+                        setCountryCode(country.code);
+                        setShowCountryPicker(false);
+                    }}
+                />
+            )}
 
             {/* Errors */}
             {err && (
@@ -561,6 +625,140 @@ export default function PayForm({
             {status === 'succeeded' && <p className="note" style={{color: '#16a34a'}}>Paiement reçu. Merci !</p>}
             {status === 'failed' &&
                 <p className="note" style={{color: '#dc2626'}}>Paiement échoué. Essayez une autre méthode.</p>}
+        </div>
+    );
+}
+
+const COUNTRIES = (() => {
+    const hasIntlRegions =
+        typeof Intl !== 'undefined' &&
+        typeof Intl.supportedValuesOf === 'function' &&
+        typeof Intl.DisplayNames === 'function';
+
+    if (hasIntlRegions) {
+        const displayNames = new Intl.DisplayNames(['en'], {type: 'region'});
+        const codes = Intl.supportedValuesOf('region').filter((code) => code.length === 2);
+        const mapped = codes.map((code) => ({
+            code,
+            name: displayNames.of(code) || code,
+        }));
+        const rest = mapped
+            .filter((country) => country.code !== 'CD')
+            .sort((a, b) => a.name.localeCompare(b.name));
+        return [{code: 'CD', name: 'DR Congo'}, ...rest];
+    }
+
+    return [
+        {code: 'CD', name: 'DR Congo'},
+        {code: 'ZA', name: 'South Africa'},
+        {code: 'KE', name: 'Kenya'},
+        {code: 'NG', name: 'Nigeria'},
+        {code: 'UG', name: 'Uganda'},
+        {code: 'RW', name: 'Rwanda'},
+        {code: 'TZ', name: 'Tanzania'},
+        {code: 'GH', name: 'Ghana'},
+        {code: 'CI', name: "Côte d’Ivoire"},
+        {code: 'CM', name: 'Cameroon'},
+        {code: 'SN', name: 'Senegal'},
+        {code: 'MA', name: 'Morocco'},
+        {code: 'EG', name: 'Egypt'},
+        {code: 'FR', name: 'France'},
+        {code: 'GB', name: 'United Kingdom'},
+        {code: 'US', name: 'United States'},
+        {code: 'CA', name: 'Canada'},
+        {code: 'BR', name: 'Brazil'},
+        {code: 'IN', name: 'India'},
+        {code: 'CN', name: 'China'},
+        {code: 'JP', name: 'Japan'},
+        {code: 'AU', name: 'Australia'},
+    ];
+})();
+
+const COUNTRIES_BY_CODE = COUNTRIES.reduce((acc, country) => {
+    acc[country.code] = country;
+    return acc;
+}, {});
+
+function CountryPickerModal({open, onClose, countries, query, onQueryChange, selectedCode, onSelect}) {
+    if (!open) return null;
+
+    return (
+        <div
+            role="dialog"
+            aria-modal="true"
+            style={{
+                position: 'fixed',
+                inset: 0,
+                zIndex: 9999,
+                background: 'rgba(0,0,0,0.45)',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'flex-end',
+                padding: 0,
+            }}
+            onClick={onClose}
+        >
+            <div
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                    width: '100%',
+                    maxWidth: 520,
+                    borderTopLeftRadius: 18,
+                    borderTopRightRadius: 18,
+                    background: '#fff',
+                    padding: '16px 16px 20px',
+                    boxShadow: '0 -12px 30px rgba(0,0,0,0.25)',
+                    animation: 'sheetUp .25s ease',
+                }}
+            >
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                    <h3 className="card-title" style={{margin: 0}}>Select a country</h3>
+                    <button onClick={onClose} className="tile" style={{padding: '6px 10px'}}>Close</button>
+                </div>
+
+                <input
+                    type="text"
+                    className="input"
+                    placeholder="Search country"
+                    value={query}
+                    onChange={(e) => onQueryChange(e.currentTarget.value)}
+                    style={{marginTop: 12}}
+                />
+
+                <div
+                    style={{
+                        marginTop: 12,
+                        maxHeight: '55vh',
+                        overflow: 'auto',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                    }}
+                >
+                    {countries.length === 0 && (
+                        <div className="note" style={{padding: '12px 6px'}}>No countries found.</div>
+                    )}
+                    {countries.map((country) => (
+                        <button
+                            key={country.code}
+                            type="button"
+                            onClick={() => onSelect(country)}
+                            className="tile"
+                            style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                padding: '10px 12px',
+                                borderColor: country.code === selectedCode ? '#2563eb' : undefined,
+                                background: country.code === selectedCode ? '#eff6ff' : undefined,
+                            }}
+                        >
+                            <span style={{fontWeight: 600}}>{country.name}</span>
+                            <span style={{color: '#64748B', fontWeight: 700}}>{country.code}</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
         </div>
     );
 }
