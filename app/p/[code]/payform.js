@@ -5,12 +5,12 @@ import {API_BASE, http, idem} from '../../../lib/api';
 import {
     GROUP_ORDER,
     labelForType,
-    mapIsoToCallingCode,
     money,
     parseCryptoHint,
     prettyError,
     shouldRefreshOnError,
 } from './utils/payform-helpers';
+import COUNTRIES from '../../../src/data/countries';
 
 import Accordion from './components/Accordion';
 import MobilePhoneField from './components/MobilePhoneField';
