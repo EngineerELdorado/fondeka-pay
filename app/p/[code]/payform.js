@@ -39,28 +39,10 @@ export default function PayForm({
 
     const [countryCode, setCountryCode] = useState((detectedCountry || 'CD').toUpperCase());
     const [userSelectedCountry, setUserSelectedCountry] = useState(false);
-    const countryOptions = useMemo(() => {
-        const seen = new Set();
-        return COUNTRIES.reduce((acc, country) => {
-            if (seen.has(country.cca2)) return acc;
-            seen.add(country.cca2);
-            acc.push({
-                code: country.cca2,
-                name: country.name,
-                callingCode: country.callingCode,
-                flag: country.flag,
-            });
-            return acc;
-        }, []);
-    }, []);
-
+    const callingCode = useMemo(() => mapIsoToCallingCode(countryCode) || '243', [countryCode]);
     const selectedCountry = useMemo(
-        () => COUNTRIES_BY_CODE[countryCode] || {code: countryCode, name: countryCode, callingCode: ''},
+        () => COUNTRIES_BY_CODE[countryCode] || {code: countryCode, name: countryCode},
         [countryCode]
-    );
-    const callingCode = useMemo(
-        () => selectedCountry.callingCode || '243',
-        [selectedCountry.callingCode]
     );
 
     // Hooks now DO NOT auto-select a method; methodId starts as null
@@ -117,13 +99,12 @@ export default function PayForm({
 
     const filteredCountries = useMemo(() => {
         const query = countryQuery.trim().toLowerCase();
-        if (!query) return countryOptions;
-        return countryOptions.filter((country) => (
+        if (!query) return COUNTRIES;
+        return COUNTRIES.filter((country) => (
             country.name.toLowerCase().includes(query) ||
-            country.code.toLowerCase().includes(query) ||
-            country.callingCode.includes(query)
+            country.code.toLowerCase().includes(query)
         ));
-    }, [countryOptions, countryQuery]);
+    }, [countryQuery]);
 
     // NOTE: we no longer auto-open accordions when a method is selected.
     // We also don't pre-select any method.
@@ -476,9 +457,7 @@ export default function PayForm({
                         style={{display: 'inline-flex', alignItems: 'center', gap: 6}}
                         disabled={disabled}
                     >
-                        <span style={{fontWeight: 700}}>
-                            {selectedCountry.flag ? `${selectedCountry.flag} ` : ''}{selectedCountry.name}
-                        </span>
+                        <span style={{fontWeight: 700}}>{selectedCountry.name}</span>
                     </button>
                 </div>
                 {disabledReason && (
@@ -650,14 +629,53 @@ export default function PayForm({
     );
 }
 
+const COUNTRIES = (() => {
+    const hasIntlRegions =
+        typeof Intl !== 'undefined' &&
+        typeof Intl.supportedValuesOf === 'function' &&
+        typeof Intl.DisplayNames === 'function';
+
+    if (hasIntlRegions) {
+        const displayNames = new Intl.DisplayNames(['en'], {type: 'region'});
+        const codes = Intl.supportedValuesOf('region').filter((code) => code.length === 2);
+        const mapped = codes.map((code) => ({
+            code,
+            name: displayNames.of(code) || code,
+        }));
+        const rest = mapped
+            .filter((country) => country.code !== 'CD')
+            .sort((a, b) => a.name.localeCompare(b.name));
+        return [{code: 'CD', name: 'DR Congo'}, ...rest];
+    }
+
+    return [
+        {code: 'CD', name: 'DR Congo'},
+        {code: 'ZA', name: 'South Africa'},
+        {code: 'KE', name: 'Kenya'},
+        {code: 'NG', name: 'Nigeria'},
+        {code: 'UG', name: 'Uganda'},
+        {code: 'RW', name: 'Rwanda'},
+        {code: 'TZ', name: 'Tanzania'},
+        {code: 'GH', name: 'Ghana'},
+        {code: 'CI', name: "Côte d’Ivoire"},
+        {code: 'CM', name: 'Cameroon'},
+        {code: 'SN', name: 'Senegal'},
+        {code: 'MA', name: 'Morocco'},
+        {code: 'EG', name: 'Egypt'},
+        {code: 'FR', name: 'France'},
+        {code: 'GB', name: 'United Kingdom'},
+        {code: 'US', name: 'United States'},
+        {code: 'CA', name: 'Canada'},
+        {code: 'BR', name: 'Brazil'},
+        {code: 'IN', name: 'India'},
+        {code: 'CN', name: 'China'},
+        {code: 'JP', name: 'Japan'},
+        {code: 'AU', name: 'Australia'},
+    ];
+})();
+
 const COUNTRIES_BY_CODE = COUNTRIES.reduce((acc, country) => {
-    if (acc[country.cca2]) return acc;
-    acc[country.cca2] = {
-        code: country.cca2,
-        name: country.name,
-        callingCode: country.callingCode,
-        flag: country.flag,
-    };
+    acc[country.code] = country;
     return acc;
 }, {});
 
@@ -735,12 +753,8 @@ function CountryPickerModal({open, onClose, countries, query, onQueryChange, sel
                                 background: country.code === selectedCode ? '#eff6ff' : undefined,
                             }}
                         >
-                            <span style={{fontWeight: 600}}>
-                                {country.flag ? `${country.flag} ` : ''}{country.name}
-                            </span>
-                            <span style={{color: '#64748B', fontWeight: 700}}>
-                                {country.code} {country.callingCode ? `+${country.callingCode}` : ''}
-                            </span>
+                            <span style={{fontWeight: 600}}>{country.name}</span>
+                            <span style={{color: '#64748B', fontWeight: 700}}>{country.code}</span>
                         </button>
                     ))}
                 </div>
