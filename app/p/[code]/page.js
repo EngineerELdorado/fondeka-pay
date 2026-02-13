@@ -90,6 +90,7 @@ function normalizeData(d) {
         type: d.type ?? 'QUICK_CHARGE',
         currency: d.currency ?? 'USD',
         amount: toNum(d.amount),
+        totalCollected: toNum(d.totalCollected) ?? 0,
         minAmount: toNum(d.minAmount),
         maxAmount: toNum(d.maxAmount),
         checkoutToken: d.checkoutToken ?? '',
@@ -286,6 +287,7 @@ export default async function Page({ params }) {
                     publicCode={params.code}
                     canPay={canPay}
                     disabledReason={reason}
+                    totalCollected={data.totalCollected}
                 />
 
                 {/* Endless payments list */}
