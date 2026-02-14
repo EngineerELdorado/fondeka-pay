@@ -4,7 +4,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { API_BASE } from '../../../lib/api'; // uses NEXT_PUBLIC_API_BASE
 
-export default function PaymentsFeed({ publicCode, currency = 'USD', pageSize = 10, requestType = 'QUICK_CHARGE' }) {
+export default function PaymentsFeed({
+    publicCode,
+    currency = 'USD',
+    pageSize = 10,
+    requestType = 'QUICK_CHARGE',
+    totalCollected = 0,
+}) {
     const [items, setItems] = useState([]);
     const [error, setError] = useState(null);
 
@@ -46,6 +52,7 @@ export default function PaymentsFeed({ publicCode, currency = 'USD', pageSize = 
     const fmtDate = (iso) => {
         try { return new Date(iso).toLocaleString(); } catch { return iso || '—'; }
     };
+    const collectedAmount = Number.isFinite(Number(totalCollected)) ? Number(totalCollected) : 0;
 
     const fetchPage = useCallback(async (p) => {
         if (!publicCode) return;
@@ -129,9 +136,14 @@ export default function PaymentsFeed({ publicCode, currency = 'USD', pageSize = 
 
     return (
         <section className="card card--plain" style={{ background: '#fff', marginTop: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span className="label" style={{ marginBottom: 0 }}>Collected so far</span>
+                <strong style={{ fontSize: 16, whiteSpace: 'nowrap' }}>{fmtMoney(collectedAmount)}</strong>
+            </div>
+
             {/* Header with refresh */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 className="card-title" style={{ margin: 0 }}>They have contributed</h3>
+                <h3 className="card-title" style={{ margin: 0 }}>Recent payments</h3>
                 <button
                     aria-label="Rafraîchir"
                     title="Rafraîchir"
@@ -155,30 +167,30 @@ export default function PaymentsFeed({ publicCode, currency = 'USD', pageSize = 
             {/* List */}
             {!!items.length && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-                    {items.map((p) => (
-                        <div
-                            key={p.id}
-                            style={{
-                                border: '1px solid var(--brand-border)',
-                                borderRadius: 12,
-                                background: '#fff',
-                                padding: 12,
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                gap: 10,
-                            }}
-                        >
-                            {/* Left: avatar + amount + optional name */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                                <Avatar type={requestType} />
-                                <div style={{ minWidth: 0 }}>
-                                    <div style={{ fontWeight: 900, color: '#0f172a' }}>
-                                        {fmtMoney(p.amount)}
-                                    </div>
+                    {items.map((p) => {
+                        const payerName = String(p?.payerName || '').trim() || 'Anonymous';
+                        return (
+                            <div
+                                key={p.id}
+                                style={{
+                                    border: '1px solid var(--brand-border)',
+                                    borderRadius: 12,
+                                    background: '#fff',
+                                    padding: 12,
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    gap: 10,
+                                }}
+                            >
+                                {/* Left: avatar + amount + optional name */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                                    <Avatar type={requestType} />
+                                    <div style={{ minWidth: 0 }}>
+                                        <div style={{ fontWeight: 900, color: '#0f172a' }}>
+                                            {fmtMoney(p.amount)}
+                                        </div>
 
-                                    {/* Show payerName only when present — no placeholder, avoids the "dot" look */}
-                                    {p.payerName && (
                                         <div
                                             style={{
                                                 fontSize: 14,
@@ -188,20 +200,20 @@ export default function PaymentsFeed({ publicCode, currency = 'USD', pageSize = 
                                                 textOverflow: 'ellipsis',
                                                 whiteSpace: 'nowrap',
                                             }}
-                                            title={p.payerName}
+                                            title={payerName}
                                         >
-                                            {p.payerName}
+                                            {payerName}
                                         </div>
-                                    )}
+                                    </div>
+                                </div>
+
+                                {/* Right: date */}
+                                <div style={{ fontSize: 13, color: '#64748B', whiteSpace: 'nowrap' }}>
+                                    {fmtDate(p.createdAt)}
                                 </div>
                             </div>
-
-                            {/* Right: date */}
-                            <div style={{ fontSize: 13, color: '#64748B', whiteSpace: 'nowrap' }}>
-                                {fmtDate(p.createdAt)}
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 

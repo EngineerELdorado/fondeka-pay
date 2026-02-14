@@ -35,7 +35,7 @@ export default function PayForm({
     const type = data.type || 'QUICK_CHARGE';
     const currency = data.currency || 'USD';
     const isDonation = type === 'DONATION';
-    const showCollected = type === 'DONATION' || type === 'INVOICE';
+    const showCollected = type === 'INVOICE';
     const collectedAmount = Number.isFinite(Number(totalCollected)) ? Number(totalCollected) : 0;
 
     const [checkoutToken, setCheckoutToken] = useState(data.checkoutToken || '');
@@ -399,12 +399,6 @@ export default function PayForm({
             {/* Amount */}
             {isDonation ? (
                 <section className="card" style={disabled ? {opacity: 0.6, pointerEvents: 'none'} : undefined}>
-                    {showCollected && (
-                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10}}>
-                            <span className="label" style={{marginBottom: 0}}>Collected so far</span>
-                            <strong style={{fontSize: 16, whiteSpace: 'nowrap'}}>{money(collectedAmount, currency || 'USD')}</strong>
-                        </div>
-                    )}
                     <label className="label">How much do you want to send</label>
 
                     {!!(Array.isArray(data.presets) && data.presets.length) && (

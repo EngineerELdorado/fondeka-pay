@@ -296,6 +296,7 @@ export default async function Page({ params }) {
                         publicCode={params.code}
                         currency={data.currency || 'USD'}
                         requestType={data.type}
+                        totalCollected={data.totalCollected}
                     />
                 )}
                 {isDonation && (
