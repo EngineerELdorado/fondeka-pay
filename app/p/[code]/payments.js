@@ -54,8 +54,10 @@ export default function PaymentsFeed({
         try { return new Date(iso).toLocaleString(); } catch { return iso || '—'; }
     };
     const collectedAmount = Number.isFinite(Number(totalCollected)) ? Number(totalCollected) : 0;
+    const canShowRecentPayments = showRecentPaymentsPublicly === true;
 
     const fetchPage = useCallback(async (p) => {
+        if (!canShowRecentPayments) return;
         if (!publicCode) return;
         if (loadingRef.current) return;
         if (!hasMoreRef.current) return;
@@ -94,14 +96,28 @@ export default function PaymentsFeed({
             if (abortRef.current === ac) abortRef.current = null;
             loadingRef.current = false;
         }
-    }, [publicCode, pageSize]);
+    }, [canShowRecentPayments, publicCode, pageSize]);
 
     // initialize per code
     useEffect(() => {
+        if (!canShowRecentPayments) {
+            setItems([]);
+            setError(null);
+            fetchedPagesRef.current.clear();
+            pageRef.current = 0;
+            hasMoreRef.current = false;
+            loadingRef.current = false;
+            initializedRef.current = false;
+            if (abortRef.current) {
+                abortRef.current.abort();
+                abortRef.current = null;
+            }
+            return;
+        }
         resetAndFetchFirst();
         return () => { if (abortRef.current) abortRef.current.abort(); };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [publicCode]);
+    }, [canShowRecentPayments, publicCode]);
 
     const resetAndFetchFirst = useCallback(() => {
         setItems([]);
@@ -135,14 +151,14 @@ export default function PaymentsFeed({
 
     const loading = loadingRef.current;
 
+    if (!canShowRecentPayments) return null;
+
     return (
         <section className="card card--plain" style={{ background: '#fff', marginTop: 12 }}>
-            {showRecentPaymentsPublicly && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                    <span className="label" style={{ marginBottom: 0 }}>Collected so far</span>
-                    <strong style={{ fontSize: 16, whiteSpace: 'nowrap' }}>{fmtMoney(collectedAmount)}</strong>
-                </div>
-            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span className="label" style={{ marginBottom: 0 }}>Collected so far</span>
+                <strong style={{ fontSize: 16, whiteSpace: 'nowrap' }}>{fmtMoney(collectedAmount)}</strong>
+            </div>
 
             {/* Header with refresh */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
