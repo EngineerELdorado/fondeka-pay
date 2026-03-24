@@ -35,7 +35,7 @@ export default function PayForm({
     const type = data.type || 'QUICK_CHARGE';
     const currency = data.currency || 'USD';
     const isDonation = type === 'DONATION';
-    const showCollected = type === 'INVOICE';
+    const showCollected = type === 'INVOICE' && data.showRecentPaymentsPublicly === true;
     const collectedAmount = Number.isFinite(Number(totalCollected)) ? Number(totalCollected) : 0;
 
     const [checkoutToken, setCheckoutToken] = useState(data.checkoutToken || '');

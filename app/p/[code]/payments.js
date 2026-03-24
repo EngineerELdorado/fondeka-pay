@@ -10,6 +10,7 @@ export default function PaymentsFeed({
     pageSize = 10,
     requestType = 'QUICK_CHARGE',
     totalCollected = 0,
+    showRecentPaymentsPublicly = true,
 }) {
     const [items, setItems] = useState([]);
     const [error, setError] = useState(null);
@@ -136,10 +137,12 @@ export default function PaymentsFeed({
 
     return (
         <section className="card card--plain" style={{ background: '#fff', marginTop: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <span className="label" style={{ marginBottom: 0 }}>Collected so far</span>
-                <strong style={{ fontSize: 16, whiteSpace: 'nowrap' }}>{fmtMoney(collectedAmount)}</strong>
-            </div>
+            {showRecentPaymentsPublicly && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <span className="label" style={{ marginBottom: 0 }}>Collected so far</span>
+                    <strong style={{ fontSize: 16, whiteSpace: 'nowrap' }}>{fmtMoney(collectedAmount)}</strong>
+                </div>
+            )}
 
             {/* Header with refresh */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

@@ -299,6 +299,7 @@ export default async function Page({ params }) {
                         currency={data.currency || 'USD'}
                         requestType={data.type}
                         totalCollected={data.totalCollected}
+                        showRecentPaymentsPublicly={data.showRecentPaymentsPublicly}
                     />
                 )}
                 {isDonation && (
