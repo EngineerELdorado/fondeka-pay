@@ -97,6 +97,7 @@ function normalizeData(d) {
         presets: Array.isArray(d.presets) ? d.presets.map(toNum).filter(n => Number.isFinite(n) && n > 0) : [],
         items: Array.isArray(d.items) ? d.items : [],
         metadata: d.metadata ?? {},
+        showRecentPaymentsPublicly: d.showRecentPaymentsPublicly ?? true,
         image1: d.image1 ?? null,
         image2: d.image2 ?? null,
         image3: d.image3 ?? null,
@@ -173,6 +174,7 @@ export default async function Page({ params }) {
     const data = normalizeData(raw);
     const isDonation = data.type === 'DONATION';
     const isInvoice  = data.type === 'INVOICE';
+    const canShowRecentPayments = isDonation && data.showRecentPaymentsPublicly === true;
     const { canPay, reason } = evaluatePayability(data.type, data.lifecycle);
 
     // country detect (cookie → headers → default)
@@ -291,7 +293,7 @@ export default async function Page({ params }) {
                 />
 
                 {/* Endless payments list */}
-                {isDonation && (
+                {canShowRecentPayments && (
                     <PaymentsFeed
                         publicCode={params.code}
                         currency={data.currency || 'USD'}
