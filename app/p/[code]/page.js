@@ -83,6 +83,16 @@ async function fetchPublicLink(code) {
 
 function normalizeData(d) {
     if (!d || d.__error) return d;
+    const payerFields = Array.isArray(d.payerFields)
+        ? d.payerFields
+            .map((field, index) => ({
+                key: typeof field?.key === 'string' ? field.key.trim() : '',
+                label: typeof field?.label === 'string' && field.label.trim() ? field.label.trim() : `Field ${index + 1}`,
+                required: field?.required === true,
+            }))
+            .filter((field) => field.key)
+        : [];
+
     return {
         title: d.title ?? null,
         description: d.description ?? null,
@@ -96,15 +106,7 @@ function normalizeData(d) {
         checkoutToken: d.checkoutToken ?? '',
         presets: Array.isArray(d.presets) ? d.presets.map(toNum).filter(n => Number.isFinite(n) && n > 0) : [],
         items: Array.isArray(d.items) ? d.items : [],
-        payerFields: Array.isArray(d.payerFields)
-            ? d.payerFields
-                .map((field) => ({
-                    key: typeof field?.key === 'string' ? field.key.trim() : '',
-                    label: typeof field?.label === 'string' && field.label.trim() ? field.label.trim() : 'Field',
-                    required: field?.required === true,
-                }))
-                .filter((field) => field.key)
-            : [],
+        payerFields,
         metadata: d.metadata ?? {},
         showRecentPaymentsPublicly: d.showRecentPaymentsPublicly ?? true,
         image1: d.image1 ?? null,
@@ -183,7 +185,7 @@ export default async function Page({ params }) {
     const data = normalizeData(raw);
     const isDonation = data.type === 'DONATION';
     const isInvoice  = data.type === 'INVOICE';
-    const canShowRecentPayments = isDonation && data.showRecentPaymentsPublicly === true;
+    const canShowRecentPayments = data.showRecentPaymentsPublicly === true && isDonation;
     const { canPay, reason } = evaluatePayability(data.type, data.lifecycle);
 
     // country detect (cookie → headers → default)

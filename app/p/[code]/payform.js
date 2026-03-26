@@ -599,9 +599,9 @@ export default function PayForm({
                                         </label>
                                     )}
                                     {!!payerFields.length && (
-                                        <div style={{display: 'flex', flexDirection: 'column', gap: 10}}>
+                                        <div style={{display: 'flex', flexDirection: 'column', gap: 10, width: '100%', minWidth: 0}}>
                                             {payerFields.map((field) => (
-                                                <label key={field.key} style={{display: 'flex', flexDirection: 'column', gap: 6}}>
+                                                <label key={field.key} style={{display: 'flex', flexDirection: 'column', gap: 6, width: '100%', minWidth: 0}}>
                                                     <span className="label" style={{marginBottom: 0}}>
                                                         {field.label}
                                                         {field.required ? ' *' : ''}
@@ -625,11 +625,16 @@ export default function PayForm({
                                                         }}
                                                         required={field.required}
                                                         aria-invalid={field.required && touchedDynamicPayerFields[field.key] && !String(dynamicPayerFieldValues[field.key] || '').trim()}
-                                                        style={
+                                                        style={{
+                                                            width: '100%',
+                                                            minWidth: 0,
+                                                            boxSizing: 'border-box',
+                                                            ...(
                                                             field.required && touchedDynamicPayerFields[field.key] && !String(dynamicPayerFieldValues[field.key] || '').trim()
                                                                 ? {borderColor: '#DC2626'}
                                                                 : undefined
-                                                        }
+                                                            ),
+                                                        }}
                                                     />
                                                     {field.required && touchedDynamicPayerFields[field.key] && !String(dynamicPayerFieldValues[field.key] || '').trim() && (
                                                         <span style={{fontSize: 13, color: '#DC2626'}}>

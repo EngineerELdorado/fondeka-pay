@@ -59,6 +59,7 @@ body{
 
 /* Inputs/buttons: keep 16px to prevent iOS zoom */
 .input{
+    box-sizing: border-box;
     width:100%; min-width:0;
     border:1px solid var(--brand-border); border-radius:12px;
     padding:10px 12px; font-size:16px; background:#fff;
