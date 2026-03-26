@@ -58,9 +58,6 @@ export default function PayForm({
 
     const amountRef = useRef(null);
     const phoneRef = useRef(null);
-    const nameRef = useRef(null);
-    const emailRef = useRef(null);
-
     const [busy, setBusy] = useState(false);
     const [err, setErr] = useState(null);
     const [status, setStatus] = useState('idle');
@@ -111,10 +108,8 @@ export default function PayForm({
         ));
     }, [countryQuery]);
     const payerFields = Array.isArray(data.payerFields) ? data.payerFields : [];
-    const requiresPayerName = payerFields.some(
-        (field) => field?.required && String(field.key || '').trim().toLowerCase() === 'name'
-    );
-    const canPayAnonymously = !requiresPayerName;
+    const hasRequiredPayerFields = payerFields.some((field) => field?.required);
+    const canPayAnonymously = !hasRequiredPayerFields;
     const payerAnonymous = canPayAnonymously ? anonymous : false;
 
     // NOTE: we no longer auto-open accordions when a method is selected.
@@ -320,8 +315,6 @@ export default function PayForm({
                 accountNumber: isMobile ? getAccountNumber() : undefined,
                 networkId: isCrypto ? networkId : null,
                 amount: amountToSend,
-                payerReference: (emailRef.current?.value || '').trim() || undefined,
-                payerDisplayName: (nameRef.current?.value || '').trim() || undefined,
                 payerFields: getDynamicPayerFieldsPayload(),
                 payerAnonymous,
                 idempotencyKey: idemKey,
@@ -373,10 +366,8 @@ export default function PayForm({
                     accountNumber: isMobile ? getAccountNumber() : undefined,
                     networkId: isCrypto ? networkId : null,
                     amount: isDonation ? getDonationAmountNumber() : data.amount,
-                    payerReference: (emailRef.current?.value || '').trim() || undefined,
-                    payerDisplayName: (nameRef.current?.value || '').trim() || undefined,
                     payerFields: getDynamicPayerFieldsPayload(),
-                    payerAnonymous: false,
+                    payerAnonymous,
                     idempotencyKey: idem(),
                 })
             });
@@ -606,14 +597,6 @@ export default function PayForm({
                                             />
                                             Payer en anonyme
                                         </label>
-                                    )}
-                                    {!payerAnonymous && (
-                                        <div style={{display: 'flex', gap: 8, minWidth: 0}}>
-                                            <input ref={nameRef} className="input" placeholder="Nom (optionnel)"
-                                                   style={{flex: 1, minWidth: 0}}/>
-                                            <input ref={emailRef} className="input" placeholder="Email (optionnel)"
-                                                   style={{flex: 1, minWidth: 0}}/>
-                                        </div>
                                     )}
                                     {!!payerFields.length && (
                                         <div style={{display: 'flex', flexDirection: 'column', gap: 10}}>
