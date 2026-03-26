@@ -82,6 +82,8 @@ export default function PayForm({
     const [phoneValid, setPhoneValid] = useState(false);
     const [phoneDigits, setPhoneDigits] = useState(''); // controlled digits (without +country)
     const [anonymous, setAnonymous] = useState(true);
+    const [dynamicPayerFieldValues, setDynamicPayerFieldValues] = useState({});
+    const [touchedDynamicPayerFields, setTouchedDynamicPayerFields] = useState({});
 
     const makeCollapsedState = useCallback(() => {
         const init = {};
@@ -108,6 +110,12 @@ export default function PayForm({
             country.code.toLowerCase().includes(query)
         ));
     }, [countryQuery]);
+    const payerFields = Array.isArray(data.payerFields) ? data.payerFields : [];
+    const requiresPayerName = payerFields.some(
+        (field) => field?.required && String(field.key || '').trim().toLowerCase() === 'name'
+    );
+    const canPayAnonymously = !requiresPayerName;
+    const payerAnonymous = canPayAnonymously ? anonymous : false;
 
     // NOTE: we no longer auto-open accordions when a method is selected.
     // We also don't pre-select any method.
@@ -127,6 +135,26 @@ export default function PayForm({
     };
 
     const getAccountNumber = () => (isMobile ? buildE164(phoneDigits) : undefined);
+    const missingRequiredPayerFieldKeys = useMemo(
+        () => payerFields
+            .filter((field) => field?.required)
+            .filter((field) => !String(dynamicPayerFieldValues[field.key] || '').trim())
+            .map((field) => field.key),
+        [dynamicPayerFieldValues, payerFields]
+    );
+    const hasMissingRequiredPayerFields = missingRequiredPayerFieldKeys.length > 0;
+
+    const getDynamicPayerFieldsPayload = useCallback(() => {
+        if (!payerFields.length) return undefined;
+
+        const entries = payerFields.reduce((acc, field) => {
+            const value = String(dynamicPayerFieldValues[field.key] || '').trim();
+            if (value) acc.push([field.key, value]);
+            return acc;
+        }, []);
+
+        return entries.length ? Object.fromEntries(entries) : undefined;
+    }, [dynamicPayerFieldValues, payerFields]);
 
     const validate = () => {
         if (!methodId) return 'Veuillez choisir une méthode de paiement.';
@@ -142,6 +170,11 @@ export default function PayForm({
         }
         if (isMobile && !phoneValid) return 'Numéro Mobile Money invalide.';
         if (isCrypto && !networkId) return 'Veuillez choisir un réseau (blockchain).';
+        for (const field of payerFields) {
+            if (!field?.required) continue;
+            const value = String(dynamicPayerFieldValues[field.key] || '').trim();
+            if (!value) return `${field.label} est requis.`;
+        }
         return null;
     };
 
@@ -239,6 +272,14 @@ export default function PayForm({
         if (disabled) return;
         const v = validate();
         if (v) {
+            if (hasMissingRequiredPayerFields) {
+                setTouchedDynamicPayerFields(() => (
+                    payerFields.reduce((acc, field) => {
+                        if (field?.required) acc[field.key] = true;
+                        return acc;
+                    }, {})
+                ));
+            }
             setErr(v);
             setCanRefresh(true);
             return;
@@ -281,7 +322,8 @@ export default function PayForm({
                 amount: amountToSend,
                 payerReference: (emailRef.current?.value || '').trim() || undefined,
                 payerDisplayName: (nameRef.current?.value || '').trim() || undefined,
-                payerAnonymous: anonymous,
+                payerFields: getDynamicPayerFieldsPayload(),
+                payerAnonymous,
                 idempotencyKey: idemKey,
             };
             return http(`${API_BASE}/public/payment-requests/pay`, {
@@ -333,6 +375,7 @@ export default function PayForm({
                     amount: isDonation ? getDonationAmountNumber() : data.amount,
                     payerReference: (emailRef.current?.value || '').trim() || undefined,
                     payerDisplayName: (nameRef.current?.value || '').trim() || undefined,
+                    payerFields: getDynamicPayerFieldsPayload(),
                     payerAnonymous: false,
                     idempotencyKey: idem(),
                 })
@@ -366,6 +409,20 @@ export default function PayForm({
         setPhoneValid(false);
         setCountryQuery('');
     }, [countryCode, makeCollapsedState, setMethodId, setNetworkId]);
+
+    useEffect(() => {
+        setDynamicPayerFieldValues(() => (
+            payerFields.reduce((acc, field) => {
+                acc[field.key] = '';
+                return acc;
+            }, {})
+        ));
+        setTouchedDynamicPayerFields({});
+    }, [payerFields]);
+
+    useEffect(() => {
+        if (!canPayAnonymously) setAnonymous(false);
+    }, [canPayAnonymously]);
 
     /* ---------- render helpers ---------- */
     const renderGroupTiles = (typeKey, list, logoSize) => (
@@ -539,21 +596,65 @@ export default function PayForm({
                             {/* Contact details + CTA scoped to this section */}
                             {activeGroup && (
                                 <div style={{marginTop: 12, display:'flex', flexDirection:'column', gap:10}}>
-                                    <label style={{ display:'inline-flex', alignItems:'center', gap:8, fontWeight:700, color:'#0f172a' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={anonymous}
-                                            onChange={(e) => setAnonymous(e.currentTarget.checked)}
-                                            style={{ width:16, height:16 }}
-                                        />
-                                        Payer en anonyme
-                                    </label>
-                                    {!anonymous && (
+                                    {canPayAnonymously && (
+                                        <label style={{ display:'inline-flex', alignItems:'center', gap:8, fontWeight:700, color:'#0f172a' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={anonymous}
+                                                onChange={(e) => setAnonymous(e.currentTarget.checked)}
+                                                style={{ width:16, height:16 }}
+                                            />
+                                            Payer en anonyme
+                                        </label>
+                                    )}
+                                    {!payerAnonymous && (
                                         <div style={{display: 'flex', gap: 8, minWidth: 0}}>
                                             <input ref={nameRef} className="input" placeholder="Nom (optionnel)"
                                                    style={{flex: 1, minWidth: 0}}/>
                                             <input ref={emailRef} className="input" placeholder="Email (optionnel)"
                                                    style={{flex: 1, minWidth: 0}}/>
+                                        </div>
+                                    )}
+                                    {!!payerFields.length && (
+                                        <div style={{display: 'flex', flexDirection: 'column', gap: 10}}>
+                                            {payerFields.map((field) => (
+                                                <label key={field.key} style={{display: 'flex', flexDirection: 'column', gap: 6}}>
+                                                    <span className="label" style={{marginBottom: 0}}>
+                                                        {field.label}
+                                                        {field.required ? ' *' : ''}
+                                                    </span>
+                                                    <input
+                                                        name={field.key}
+                                                        className="input"
+                                                        value={dynamicPayerFieldValues[field.key] || ''}
+                                                        onBlur={() => {
+                                                            setTouchedDynamicPayerFields((prev) => ({
+                                                                ...prev,
+                                                                [field.key]: true,
+                                                            }));
+                                                        }}
+                                                        onChange={(e) => {
+                                                            const nextValue = e.currentTarget.value;
+                                                            setDynamicPayerFieldValues((prev) => ({
+                                                                ...prev,
+                                                                [field.key]: nextValue,
+                                                            }));
+                                                        }}
+                                                        required={field.required}
+                                                        aria-invalid={field.required && touchedDynamicPayerFields[field.key] && !String(dynamicPayerFieldValues[field.key] || '').trim()}
+                                                        style={
+                                                            field.required && touchedDynamicPayerFields[field.key] && !String(dynamicPayerFieldValues[field.key] || '').trim()
+                                                                ? {borderColor: '#DC2626'}
+                                                                : undefined
+                                                        }
+                                                    />
+                                                    {field.required && touchedDynamicPayerFields[field.key] && !String(dynamicPayerFieldValues[field.key] || '').trim() && (
+                                                        <span style={{fontSize: 13, color: '#DC2626'}}>
+                                                            {field.label} is required.
+                                                        </span>
+                                                    )}
+                                                </label>
+                                            ))}
                                         </div>
                                     )}
                                     <button

@@ -96,6 +96,15 @@ function normalizeData(d) {
         checkoutToken: d.checkoutToken ?? '',
         presets: Array.isArray(d.presets) ? d.presets.map(toNum).filter(n => Number.isFinite(n) && n > 0) : [],
         items: Array.isArray(d.items) ? d.items : [],
+        payerFields: Array.isArray(d.payerFields)
+            ? d.payerFields
+                .map((field) => ({
+                    key: typeof field?.key === 'string' ? field.key.trim() : '',
+                    label: typeof field?.label === 'string' && field.label.trim() ? field.label.trim() : 'Field',
+                    required: field?.required === true,
+                }))
+                .filter((field) => field.key)
+            : [],
         metadata: d.metadata ?? {},
         showRecentPaymentsPublicly: d.showRecentPaymentsPublicly ?? true,
         image1: d.image1 ?? null,
