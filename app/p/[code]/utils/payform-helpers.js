@@ -14,15 +14,8 @@ export const accordionHeaderStyle = (open) => ({
     outline: 'none',
 });
 
-export function labelForType(t) {
-    switch (t) {
-        case 'MOBILE_MONEY': return 'Mobile Money';
-        case 'CRYPTO':       return 'Crypto';
-        case 'CARD':         return 'Carte';
-        case 'BANK_TRANSFER':return 'Virement';
-        case 'WALLET':       return 'Portefeuille';
-        default:             return 'Autres';
-    }
+export function labelForType(t, typeLabels = {}) {
+    return typeLabels[t] || typeLabels.OTHER || t;
 }
 
 export function mapIsoToCallingCode(iso2) {
@@ -30,14 +23,14 @@ export function mapIsoToCallingCode(iso2) {
     return map[(iso2 || '').toUpperCase()];
 }
 
-export function money(n, curr) {
+export function money(n, curr, locale) {
     if (n == null) return '';
     const value = Number(n) || 0;
     const c = String(curr || 'USD').toUpperCase();
     if (c === 'USD') {
-        return value.toLocaleString('en-US', { style:'currency', currency:'USD', currencyDisplay:'narrowSymbol', maximumFractionDigits:2 });
+        return value.toLocaleString(locale || undefined, { style:'currency', currency:'USD', currencyDisplay:'narrowSymbol', maximumFractionDigits:2 });
     }
-    return value.toLocaleString(undefined, { style:'currency', currency:c, maximumFractionDigits:2 });
+    return value.toLocaleString(locale || undefined, { style:'currency', currency:c, maximumFractionDigits:2 });
 }
 
 export function formatPhone(e164 = '') {
@@ -59,11 +52,11 @@ export async function copyToClipboard(text) {
     try { await navigator.clipboard.writeText(text || ''); } catch {}
 }
 
-export function prettyError(m = '') {
+export function prettyError(m = '', messages) {
     const s = String(m || '').toLowerCase();
-    if (s.includes('expired') || s.includes('token')) return 'Session expirée — rafraîchissons la page de paiement.';
-    if (s.includes('idempot')) return 'Conflit de requête — nouvelle tentative…';
-    return m || 'Une erreur est survenue.';
+    if (s.includes('expired') || s.includes('token')) return messages?.sessionExpired || 'Session expired.';
+    if (s.includes('idempot')) return messages?.requestConflict || 'Request conflict.';
+    return m || messages?.generic || 'Something went wrong.';
 }
 
 export function shouldRefreshOnError(message = '') {

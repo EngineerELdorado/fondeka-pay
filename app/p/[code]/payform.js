@@ -10,6 +10,7 @@ import {
     prettyError,
     shouldRefreshOnError,
 } from './utils/payform-helpers';
+import {detectPayFormLanguage, getPayFormMessages, interpolate} from './utils/payform-i18n';
 import COUNTRY_DATA from '../../../src/data/countries';
 
 import Accordion from './components/Accordion';
@@ -39,6 +40,9 @@ export default function PayForm({
     const collectedAmount = Number.isFinite(Number(totalCollected)) ? Number(totalCollected) : 0;
 
     const [checkoutToken, setCheckoutToken] = useState(data.checkoutToken || '');
+    const [language, setLanguage] = useState('fr');
+    const messages = useMemo(() => getPayFormMessages(language), [language]);
+    const errorMessages = messages.errors;
 
     const [countryCode, setCountryCode] = useState((detectedCountry || 'CD').toUpperCase());
     const [userSelectedCountry, setUserSelectedCountry] = useState(false);
@@ -151,23 +155,23 @@ export default function PayForm({
     }, [dynamicPayerFieldValues, payerFields]);
 
     const validate = () => {
-        if (!methodId) return 'Veuillez choisir une méthode de paiement.';
+        if (!methodId) return errorMessages.choosePaymentMethod;
         if (isDonation) {
             const n = getDonationAmountNumber();
             const hasMin = data.minAmount != null && Number(data.minAmount) > 0;
             const hasMax = data.maxAmount != null && Number(data.maxAmount) > 0;
-            if (n <= 0) return 'Veuillez entrer un montant.';
-            if (hasMin && n < Number(data.minAmount)) return `Minimum: ${money(data.minAmount, currency)}`;
-            if (hasMax && n > Number(data.maxAmount)) return `Maximum: ${money(data.maxAmount, currency)}`;
+            if (n <= 0) return errorMessages.enterAmount;
+            if (hasMin && n < Number(data.minAmount)) return interpolate(errorMessages.minimum, {amount: money(data.minAmount, currency, language)});
+            if (hasMax && n > Number(data.maxAmount)) return interpolate(errorMessages.maximum, {amount: money(data.maxAmount, currency, language)});
         } else {
-            if (!(Number(data.amount) > 0)) return 'Montant manquant.';
+            if (!(Number(data.amount) > 0)) return errorMessages.missingAmount;
         }
-        if (isMobile && !phoneValid) return 'Numéro Mobile Money invalide.';
-        if (isCrypto && !networkId) return 'Veuillez choisir un réseau (blockchain).';
+        if (isMobile && !phoneValid) return errorMessages.invalidMobileMoney;
+        if (isCrypto && !networkId) return errorMessages.chooseNetwork;
         for (const field of payerFields) {
             if (!field?.required) continue;
             const value = String(dynamicPayerFieldValues[field.key] || '').trim();
-            if (!value) return `${field.label} est requis.`;
+            if (!value) return interpolate(errorMessages.fieldRequired, {field: field.label});
         }
         return null;
     };
@@ -188,11 +192,11 @@ export default function PayForm({
 
     /* ---------- token refresh ---------- */
     const refreshCheckoutToken = async () => {
-        if (!publicCode) throw new Error('Code public manquant');
+        if (!publicCode) throw new Error(errorMessages.publicCodeMissing);
         const res = await fetch(`${API_BASE}/public/payment-requests/${encodeURIComponent(publicCode)}`, {cache: 'no-store'});
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const link = await res.json();
-        if (!link.checkoutToken) throw new Error('Token indisponible');
+        if (!link.checkoutToken) throw new Error(errorMessages.tokenUnavailable);
         setCheckoutToken(link.checkoutToken);
         return link.checkoutToken;
     };
@@ -214,13 +218,13 @@ export default function PayForm({
             setQuote(j);
             return j;
         } catch (e) {
-            const msg = prettyError(e?.message || 'Impossible de calculer les frais.');
+            const msg = prettyError(e?.message || errorMessages.feesUnavailable, errorMessages);
             setQuoteError(msg);
             throw e;
         } finally {
             setQuoteLoading(false);
         }
-    }, [enteredAmount, methodId]);
+    }, [enteredAmount, errorMessages, methodId]);
 
     /* ---------- result handling ---------- */
     const handleSuccess = (res) => {
@@ -255,7 +259,7 @@ export default function PayForm({
 
         if (String(res?.status).toUpperCase() === 'FAILED') {
             setStatus('failed');
-            setErr('Échec du paiement.');
+            setErr(errorMessages.paymentFailed);
             return;
         }
         setStatus('pending');
@@ -333,12 +337,12 @@ export default function PayForm({
                     const res2 = await attemptOnce(fresh, idem());
                     handleSuccess(res2);
                 } catch (e2) {
-                    setErr(prettyError(e2?.message));
+                    setErr(prettyError(e2?.message, errorMessages));
                     setCanRefresh(true);
                     setStatus('failed');
                 }
             } else {
-                setErr(prettyError(e?.message));
+                setErr(prettyError(e?.message, errorMessages));
                 setCanRefresh(true);
                 setStatus('failed');
             }
@@ -372,12 +376,20 @@ export default function PayForm({
             });
             handleSuccess(res);
         } catch (e) {
-            setErr(prettyError(e?.message));
+            setErr(prettyError(e?.message, errorMessages));
             setCanRefresh(true);
         } finally {
             setBusy(false);
         }
     };
+
+    useEffect(() => {
+        const nextLanguage = detectPayFormLanguage();
+        setLanguage(nextLanguage);
+        if (typeof document !== 'undefined') {
+            document.documentElement.lang = nextLanguage;
+        }
+    }, []);
 
     // show API errors (if any)
     useEffect(() => {
@@ -442,7 +454,7 @@ export default function PayForm({
             {/* Amount */}
             {isDonation ? (
                 <section className="card" style={disabled ? {opacity: 0.6, pointerEvents: 'none'} : undefined}>
-                    <label className="label">How much do you want to send</label>
+                    <label className="label">{messages.amountLabel}</label>
 
                     {!!(Array.isArray(data.presets) && data.presets.length) && (
                         <div style={{display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8}}>
@@ -455,7 +467,7 @@ export default function PayForm({
                                     }}
                                     className="chip"
                                 >
-                                    {money(p, currency)}
+                                    {money(p, currency, language)}
                                 </button>
                             ))}
                         </div>
@@ -483,13 +495,13 @@ export default function PayForm({
                 <section className="card" style={disabled ? {opacity: 0.6, pointerEvents: 'none'} : undefined}>
                     {showCollected && (
                         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', minWidth: 0, marginBottom: 8}}>
-                            <span className="label" style={{marginBottom: 0}}>Collected so far</span>
-                            <strong style={{fontSize: 16, whiteSpace: 'nowrap'}}>{money(collectedAmount, currency || 'USD')}</strong>
+                            <span className="label" style={{marginBottom: 0}}>{messages.collectedSoFar}</span>
+                            <strong style={{fontSize: 16, whiteSpace: 'nowrap'}}>{money(collectedAmount, currency || 'USD', language)}</strong>
                         </div>
                     )}
                     <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', minWidth: 0}}>
-                        <span className="label">{type === 'INVOICE' ? 'Total to pay' : 'Amount'}</span>
-                        <strong style={{fontSize: 16, whiteSpace: 'nowrap'}}>{money(data.amount, currency)}</strong>
+                        <span className="label">{type === 'INVOICE' ? messages.totalToPay : messages.amount}</span>
+                        <strong style={{fontSize: 16, whiteSpace: 'nowrap'}}>{money(data.amount, currency, language)}</strong>
                     </div>
                 </section>
             )}
@@ -497,7 +509,7 @@ export default function PayForm({
             {/* Methods header */}
             <div style={{marginTop: 2}}>
                 <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
-                    <span className="label" style={{marginBottom: 0, flex: 1}}>How do you want to pay?</span>
+                    <span className="label" style={{marginBottom: 0, flex: 1}}>{messages.howToPay}</span>
                     <button
                         type="button"
                         className="chip"
@@ -546,7 +558,7 @@ export default function PayForm({
                     return (
                         <Accordion
                             key={t}
-                            title={labelForType(t)}
+                            title={labelForType(t, messages.typeLabels)}
                             typeKey={t}
                             open={!!expanded[t]}
                             onToggle={onToggleAccordion}
@@ -561,6 +573,7 @@ export default function PayForm({
                                             callingCode={callingCode}
                                             ref={phoneRef}
                                             value={phoneDigits}
+                                            messages={messages}
                                             onChangeDigits={(digits) => {
                                             const only = String(digits || '').replace(/\D+/g, '').slice(0, 9);
                                             setPhoneDigits(only);
@@ -573,7 +586,7 @@ export default function PayForm({
                             {/* Crypto networks */}
                             {t === 'CRYPTO' && isCrypto && (
                                 <div style={{marginTop: 10}}>
-                                    <label className="label" style={{marginBottom: 6}}>Network</label>
+                                    <label className="label" style={{marginBottom: 6}}>{messages.network}</label>
                                     <NetworkPills items={networks} selectedId={networkId} onSelect={setNetworkId}
                                                   disabled={disabled}/>
                                 </div>
@@ -622,7 +635,7 @@ export default function PayForm({
                                                     />
                                                     {field.required && touchedDynamicPayerFields[field.key] && !String(dynamicPayerFieldValues[field.key] || '').trim() && (
                                                         <span style={{fontSize: 13, color: '#DC2626'}}>
-                                                            {field.label} is required.
+                                                            {interpolate(errorMessages.fieldRequired, {field: field.label})}
                                                         </span>
                                                     )}
                                                 </label>
@@ -644,7 +657,7 @@ export default function PayForm({
                                             opacity: (busy || quoteLoading || disabled || !methodId || (isCrypto && !networkId) || !amountReady() || (isMobile && !phoneValid)) ? .6 : 1
                                         }}
                                     >
-                                        {quoteLoading ? 'Calcul en cours…' : busy ? 'Sending…' : 'Review & Pay'}
+                                        {quoteLoading ? messages.calculating : busy ? messages.sending : messages.reviewAndPay}
                                     </button>
                                 </div>
                             )}
@@ -661,6 +674,7 @@ export default function PayForm({
                     number={result.number}
                     hint={result.hint}
                     onRefresh={onRefreshAndRetry}
+                    messages={messages}
                 />
             )}
             {result?.rail === 'CRYPTO' && (
@@ -671,6 +685,7 @@ export default function PayForm({
                     amount={result.amount}
                     networkName={result.networkName}
                     hint={result.hint}
+                    messages={messages}
                 />
             )}
             {showReview && (
@@ -685,6 +700,8 @@ export default function PayForm({
                     network={isCrypto ? networks.find(n => n.id === networkId) : null}
                     account={isMobile ? getAccountNumber() : null}
                     canConfirm={!busy}
+                    messages={messages}
+                    language={language}
                 />
             )}
             {showCountryPicker && (
@@ -700,18 +717,19 @@ export default function PayForm({
                         setCountryCode(country.code);
                         setShowCountryPicker(false);
                     }}
+                    messages={messages}
                 />
             )}
 
             {/* Errors */}
             {err && (
                 <section className="card card--plain" style={{borderColor: '#FECACA', background: '#FEF2F2'}}>
-                    <h3 className="card-title" style={{marginBottom: 6}}>Oups…</h3>
+                    <h3 className="card-title" style={{marginBottom: 6}}>{messages.oops}</h3>
                     <p className="p-muted" style={{color: '#991B1B'}}>{err}</p>
                     {canRefresh && (
                         <div style={{display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap'}}>
                             <button className="tile" onClick={onRefreshAndRetry} style={{padding: '8px 10px'}}>
-                                Refresh & rety
+                                {messages.refreshAndRetry}
                             </button>
                         </div>
                     )}
@@ -719,10 +737,10 @@ export default function PayForm({
             )}
 
             {/* Status */}
-            {status === 'pending' && <p className="note">Confirmation en cours…</p>}
-            {status === 'succeeded' && <p className="note" style={{color: '#16a34a'}}>Paiement reçu. Merci !</p>}
+            {status === 'pending' && <p className="note">{messages.confirming}</p>}
+            {status === 'succeeded' && <p className="note" style={{color: '#16a34a'}}>{messages.paymentReceived}</p>}
             {status === 'failed' &&
-                <p className="note" style={{color: '#dc2626'}}>Paiement échoué. Essayez une autre méthode.</p>}
+                <p className="note" style={{color: '#dc2626'}}>{messages.paymentFailedStatus}</p>}
         </div>
     );
 }
@@ -746,7 +764,7 @@ const COUNTRIES_BY_CODE = COUNTRY_OPTIONS.reduce((acc, country) => {
 
 const mapIsoToCallingCode = (code) => COUNTRY_CALLING_CODES[code] || null;
 
-function CountryPickerModal({open, onClose, countries, query, onQueryChange, selectedCode, onSelect}) {
+function CountryPickerModal({open, onClose, countries, query, onQueryChange, selectedCode, onSelect, messages}) {
     if (!open) return null;
 
     return (
@@ -779,14 +797,14 @@ function CountryPickerModal({open, onClose, countries, query, onQueryChange, sel
                 }}
             >
                 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                    <h3 className="card-title" style={{margin: 0}}>Select a country</h3>
-                    <button onClick={onClose} className="tile" style={{padding: '6px 10px'}}>Close</button>
+                    <h3 className="card-title" style={{margin: 0}}>{messages.countryPickerTitle}</h3>
+                    <button onClick={onClose} className="tile" style={{padding: '6px 10px'}}>{messages.close}</button>
                 </div>
 
                 <input
                     type="text"
                     className="input"
-                    placeholder="Search country"
+                    placeholder={messages.searchCountry}
                     value={query}
                     onChange={(e) => onQueryChange(e.currentTarget.value)}
                     style={{marginTop: 12}}
@@ -803,7 +821,7 @@ function CountryPickerModal({open, onClose, countries, query, onQueryChange, sel
                     }}
                 >
                     {countries.length === 0 && (
-                        <div className="note" style={{padding: '12px 6px'}}>No countries found.</div>
+                        <div className="note" style={{padding: '12px 6px'}}>{messages.noCountriesFound}</div>
                     )}
                     {countries.map((country) => (
                         <button
@@ -830,7 +848,7 @@ function CountryPickerModal({open, onClose, countries, query, onQueryChange, sel
     );
 }
 
-function ReviewModal({ onClose, onConfirm, amount, fees, total, currency, method, network, account, canConfirm }) {
+function ReviewModal({ onClose, onConfirm, amount, fees, total, currency, method, network, account, canConfirm, messages, language }) {
     return (
         <div
             role="dialog"
@@ -850,22 +868,22 @@ function ReviewModal({ onClose, onConfirm, amount, fees, total, currency, method
                 }}
             >
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <h3 className="card-title" style={{ margin:0 }}>Confirmer</h3>
-                    <button onClick={onClose} className="tile" style={{ padding:'6px 10px' }}>Fermer</button>
+                    <h3 className="card-title" style={{ margin:0 }}>{messages.reviewTitle}</h3>
+                    <button onClick={onClose} className="tile" style={{ padding:'6px 10px' }}>{messages.close}</button>
                 </div>
 
                 <div style={{ marginTop: 12, display:'flex', flexDirection:'column', gap:10 }}>
-                    <SummaryLine label="Montant" value={money(amount, currency)} />
-                    <SummaryLine label="Frais" value={fees != null ? money(fees, currency) : '—'} />
-                    <SummaryLine label="Total à payer" value={money(total || amount, currency)} bold />
-                    {method && <SummaryLine label="Méthode" value={method.name} />}
-                    {network && <SummaryLine label="Réseau" value={network.displayName || network.name} />}
-                    {account && <SummaryLine label="Compte" value={account} />}
+                    <SummaryLine label={messages.amount} value={money(amount, currency, language)} />
+                    <SummaryLine label={messages.fees} value={fees != null ? money(fees, currency, language) : '—'} />
+                    <SummaryLine label={messages.totalToPay} value={money(total || amount, currency, language)} bold />
+                    {method && <SummaryLine label={messages.method} value={method.name} />}
+                    {network && <SummaryLine label={messages.network} value={network.displayName || network.name} />}
+                    {account && <SummaryLine label={messages.account} value={account} />}
                 </div>
 
                 <div style={{ display:'flex', gap:10, marginTop:14, flexWrap:'wrap' }}>
                     <button className="tile" onClick={onClose} style={{ padding:'10px 12px', flex:1, minWidth:120 }}>
-                        Retour
+                        {messages.back}
                     </button>
                     <button
                         className="btn btn--primary"
@@ -873,7 +891,7 @@ function ReviewModal({ onClose, onConfirm, amount, fees, total, currency, method
                         onClick={onConfirm}
                         disabled={!canConfirm}
                     >
-                        Payer maintenant
+                        {messages.payNow}
                     </button>
                 </div>
             </div>

@@ -1,6 +1,20 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { detectPayFormLanguage } from './utils/payform-i18n';
+
+const GALLERY_MESSAGES = {
+    en: {
+        close: 'Close',
+        previous: 'Previous',
+        next: 'Next',
+    },
+    fr: {
+        close: 'Fermer',
+        previous: 'Précédent',
+        next: 'Suivant',
+    },
+};
 
 /**
  * Simple, dependency-free lightbox gallery.
@@ -22,10 +36,13 @@ export default function GalleryLightbox({
                                             onClose,
                                             onIndexChange,
                                         }) {
+    const [language, setLanguage] = useState('fr');
+    const messages = useMemo(() => GALLERY_MESSAGES[language] || GALLERY_MESSAGES.fr, [language]);
     const [index, setIndex] = useState(startIndex);
     const img = images[index] || null;
 
     useEffect(() => { if (isOpen) setIndex(startIndex); }, [isOpen, startIndex]);
+    useEffect(() => { setLanguage(detectPayFormLanguage()); }, []);
 
     const prev = useCallback(() => {
         setIndex((i) => {
@@ -97,7 +114,7 @@ export default function GalleryLightbox({
                 {/* Close button */}
                 <button
                     onClick={onClose}
-                    aria-label="Fermer"
+                    aria-label={messages.close}
                     style={{
                         position: 'absolute', top: 10, right: 18, zIndex: 2,
                         background: 'rgba(255,255,255,0.15)', color: '#fff', border: 'none',
@@ -112,14 +129,14 @@ export default function GalleryLightbox({
                     <>
                         <button
                             onClick={prev}
-                            aria-label="Précédent"
+                            aria-label={messages.previous}
                             style={navBtnStyle('left')}
                         >
                             ‹
                         </button>
                         <button
                             onClick={next}
-                            aria-label="Suivant"
+                            aria-label={messages.next}
                             style={navBtnStyle('right')}
                         >
                             ›

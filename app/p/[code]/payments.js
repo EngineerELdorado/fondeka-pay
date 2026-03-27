@@ -1,8 +1,32 @@
 // app/p/[code]/payments.js
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { API_BASE } from '../../../lib/api'; // uses NEXT_PUBLIC_API_BASE
+import { detectPayFormLanguage } from './utils/payform-i18n';
+
+const PAYMENTS_MESSAGES = {
+    en: {
+        collectedSoFar: 'Collected so far',
+        recentPayments: 'Recent payments',
+        refresh: 'Refresh',
+        refreshAria: 'Refresh',
+        noPayments: 'No payments yet',
+        noPaymentsHint: 'Payments will appear here as they come in.',
+        anonymous: 'Anonymous',
+        loadError: 'Unable to load payments.',
+    },
+    fr: {
+        collectedSoFar: 'Montant collecté',
+        recentPayments: 'Paiements récents',
+        refresh: 'Rafraîchir',
+        refreshAria: 'Rafraîchir',
+        noPayments: 'Aucun paiement',
+        noPaymentsHint: 'Les paiements apparaîtront ici au fur et à mesure.',
+        anonymous: 'Anonyme',
+        loadError: 'Impossible de charger les paiements.',
+    },
+};
 
 export default function PaymentsFeed({
     publicCode,
@@ -12,6 +36,8 @@ export default function PaymentsFeed({
     totalCollected = 0,
     showRecentPaymentsPublicly = true,
 }) {
+    const [language, setLanguage] = useState('fr');
+    const messages = useMemo(() => PAYMENTS_MESSAGES[language] || PAYMENTS_MESSAGES.fr, [language]);
     const [items, setItems] = useState([]);
     const [error, setError] = useState(null);
 
@@ -33,21 +59,21 @@ export default function PaymentsFeed({
             if (typeof n !== 'number') return n;
             if (String(currency).toUpperCase() === 'USD') {
                 // Force narrow symbol with US locale to render "$"
-                return n.toLocaleString('en-US', {
-                    style: 'currency',
-                    currency: 'USD',
-                    currencyDisplay: 'narrowSymbol',
+                    return n.toLocaleString(language, {
+                        style: 'currency',
+                        currency: 'USD',
+                        currencyDisplay: 'narrowSymbol',
                     maximumFractionDigits: 2,
                 });
             }
             // Fallback for other currencies (keep user’s locale)
-            return n.toLocaleString(undefined, {
+            return n.toLocaleString(language, {
                 style: 'currency',
                 currency,
                 maximumFractionDigits: 2,
             });
         },
-        [currency]
+        [currency, language]
     );
 
     const fmtDate = (iso) => {
@@ -91,12 +117,16 @@ export default function PaymentsFeed({
             hasMoreRef.current = json?.last === false; // more pages only if last=false
             pageRef.current = p + 1;                   // advance to next page
         } catch (e) {
-            if (e?.name !== 'AbortError') setError(e?.message || 'Impossible de charger les paiements.');
+            if (e?.name !== 'AbortError') setError(e?.message || messages.loadError);
         } finally {
             if (abortRef.current === ac) abortRef.current = null;
             loadingRef.current = false;
         }
-    }, [canShowRecentPayments, publicCode, pageSize]);
+    }, [canShowRecentPayments, messages.loadError, pageSize, publicCode]);
+
+    useEffect(() => {
+        setLanguage(detectPayFormLanguage());
+    }, []);
 
     // initialize per code
     useEffect(() => {
@@ -156,30 +186,30 @@ export default function PaymentsFeed({
     return (
         <section className="card card--plain" style={{ background: '#fff', marginTop: 12 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <span className="label" style={{ marginBottom: 0 }}>Collected so far</span>
+                <span className="label" style={{ marginBottom: 0 }}>{messages.collectedSoFar}</span>
                 <strong style={{ fontSize: 16, whiteSpace: 'nowrap' }}>{fmtMoney(collectedAmount)}</strong>
             </div>
 
             {/* Header with refresh */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 className="card-title" style={{ margin: 0 }}>Recent payments</h3>
+                <h3 className="card-title" style={{ margin: 0 }}>{messages.recentPayments}</h3>
                 <button
-                    aria-label="Rafraîchir"
-                    title="Rafraîchir"
+                    aria-label={messages.refreshAria}
+                    title={messages.refreshAria}
                     className="tile"
                     onClick={resetAndFetchFirst}
                     style={{ padding: '6px 10px', display: 'inline-flex', alignItems: 'center', gap: 6, color: '#4F805C' }}
                 >
                     <IconRefresh />
-                    <span style={{ fontSize: 14 }}>Refresh</span>
+                    <span style={{ fontSize: 14 }}>{messages.refresh}</span>
                 </button>
             </div>
 
             {/* Empty */}
             {!items.length && !loading && !error && (
                 <div style={{ marginTop: 8, padding: 12, border: '1px dashed var(--brand-border)', borderRadius: 12, background: '#fff' }}>
-                    <div className="label" style={{ marginBottom: 4 }}>Aucun paiement</div>
-                    <div className="p-muted">Les paiements apparaîtront ici au fur et à mesure.</div>
+                    <div className="label" style={{ marginBottom: 4 }}>{messages.noPayments}</div>
+                    <div className="p-muted">{messages.noPaymentsHint}</div>
                 </div>
             )}
 
@@ -187,7 +217,7 @@ export default function PaymentsFeed({
             {!!items.length && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
                     {items.map((p) => {
-                        const payerName = String(p?.payerName || '').trim() || 'Anonymous';
+                        const payerName = String(p?.payerName || '').trim() || messages.anonymous;
                         return (
                             <div
                                 key={p.id}
