@@ -78,7 +78,6 @@ export default function PayForm({
     const [amountValid, setAmountValid] = useState(() => !isDonation ? Number(data.amount) > 0 : false);
     const [phoneValid, setPhoneValid] = useState(false);
     const [phoneDigits, setPhoneDigits] = useState(''); // controlled digits (without +country)
-    const [anonymous, setAnonymous] = useState(true);
     const [dynamicPayerFieldValues, setDynamicPayerFieldValues] = useState({});
     const [touchedDynamicPayerFields, setTouchedDynamicPayerFields] = useState({});
 
@@ -110,7 +109,7 @@ export default function PayForm({
     const payerFields = Array.isArray(data.payerFields) ? data.payerFields : [];
     const hasRequiredPayerFields = payerFields.some((field) => field?.required);
     const canPayAnonymously = !hasRequiredPayerFields;
-    const payerAnonymous = canPayAnonymously ? anonymous : false;
+    const payerAnonymous = canPayAnonymously;
 
     // NOTE: we no longer auto-open accordions when a method is selected.
     // We also don't pre-select any method.
@@ -411,10 +410,6 @@ export default function PayForm({
         setTouchedDynamicPayerFields({});
     }, [payerFields]);
 
-    useEffect(() => {
-        if (!canPayAnonymously) setAnonymous(false);
-    }, [canPayAnonymously]);
-
     /* ---------- render helpers ---------- */
     const renderGroupTiles = (typeKey, list, logoSize) => (
         <SquareGrid>
@@ -587,17 +582,6 @@ export default function PayForm({
                             {/* Contact details + CTA scoped to this section */}
                             {activeGroup && (
                                 <div style={{marginTop: 12, display:'flex', flexDirection:'column', gap:10}}>
-                                    {canPayAnonymously && (
-                                        <label style={{ display:'inline-flex', alignItems:'center', gap:8, fontWeight:700, color:'#0f172a' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={anonymous}
-                                                onChange={(e) => setAnonymous(e.currentTarget.checked)}
-                                                style={{ width:16, height:16 }}
-                                            />
-                                            Payer en anonyme
-                                        </label>
-                                    )}
                                     {!!payerFields.length && (
                                         <div style={{display: 'flex', flexDirection: 'column', gap: 10, width: '100%', minWidth: 0}}>
                                             {payerFields.map((field) => (
