@@ -36,6 +36,8 @@ export default function PayForm({
     const type = data.type || 'QUICK_CHARGE';
     const currency = data.currency || 'USD';
     const isDonation = type === 'DONATION';
+    const minimumEnabled = data.minimumAmountEnabled === true;
+    const minimumAmount = Number(data.minAmount) || 0;
     const showCollected = type === 'INVOICE' && data.showRecentPaymentsPublicly === true;
     const collectedAmount = Number.isFinite(Number(totalCollected)) ? Number(totalCollected) : 0;
 
@@ -79,7 +81,17 @@ export default function PayForm({
     const [countryQuery, setCountryQuery] = useState('');
 
     // validity + controlled phone
-    const [amountValid, setAmountValid] = useState(() => !isDonation ? Number(data.amount) > 0 : false);
+    const isValidDonationAmount = useCallback((value) => {
+        const amount = Number(value);
+        if (!Number.isFinite(amount) || amount <= 0) return false;
+        if (minimumEnabled && amount < minimumAmount) return false;
+        if (data.maxAmount != null && Number(data.maxAmount) > 0 && amount > Number(data.maxAmount)) return false;
+        return true;
+    }, [data.maxAmount, minimumAmount, minimumEnabled]);
+    const [amountValid, setAmountValid] = useState(() => {
+        if (!isDonation) return Number(data.amount) > 0;
+        return minimumEnabled && minimumAmount > 0;
+    });
     const [phoneValid, setPhoneValid] = useState(false);
     const [phoneDigits, setPhoneDigits] = useState(''); // controlled digits (without +country)
     const [dynamicPayerFieldValues, setDynamicPayerFieldValues] = useState({});
@@ -158,10 +170,9 @@ export default function PayForm({
         if (!methodId) return errorMessages.choosePaymentMethod;
         if (isDonation) {
             const n = getDonationAmountNumber();
-            const hasMin = data.minAmount != null && Number(data.minAmount) > 0;
             const hasMax = data.maxAmount != null && Number(data.maxAmount) > 0;
             if (n <= 0) return errorMessages.enterAmount;
-            if (hasMin && n < Number(data.minAmount)) return interpolate(errorMessages.minimum, {amount: money(data.minAmount, currency, language)});
+            if (minimumEnabled && n < minimumAmount) return interpolate(errorMessages.minimum, {amount: money(minimumAmount, currency, language)});
             if (hasMax && n > Number(data.maxAmount)) return interpolate(errorMessages.maximum, {amount: money(data.maxAmount, currency, language)});
         } else {
             if (!(Number(data.amount) > 0)) return errorMessages.missingAmount;
@@ -422,6 +433,21 @@ export default function PayForm({
         setTouchedDynamicPayerFields({});
     }, [payerFields]);
 
+    useEffect(() => {
+        if (!isDonation) {
+            setAmountValid(Number(data.amount) > 0);
+            return;
+        }
+        if (minimumEnabled && minimumAmount > 0) {
+            if (amountRef.current && !String(amountRef.current.value || '').trim()) {
+                amountRef.current.value = String(minimumAmount);
+            }
+            setAmountValid(isValidDonationAmount(minimumAmount));
+            return;
+        }
+        setAmountValid(false);
+    }, [data.amount, isDonation, isValidDonationAmount, minimumAmount, minimumEnabled]);
+
     /* ---------- render helpers ---------- */
     const renderGroupTiles = (typeKey, list, logoSize) => (
         <SquareGrid>
@@ -456,6 +482,12 @@ export default function PayForm({
                 <section className="card" style={disabled ? {opacity: 0.6, pointerEvents: 'none'} : undefined}>
                     <label className="label">{messages.amountLabel}</label>
 
+                    {minimumEnabled && minimumAmount > 0 && (
+                        <p className="p-muted" style={{marginTop: 6}}>
+                            {interpolate(messages.minimumDonation, {amount: money(minimumAmount, currency, language)})}
+                        </p>
+                    )}
+
                     {!!(Array.isArray(data.presets) && data.presets.length) && (
                         <div style={{display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8}}>
                             {data.presets.map((p, i) => (
@@ -463,7 +495,7 @@ export default function PayForm({
                                     key={`${p}-${i}`}
                                     onClick={() => {
                                         if (amountRef.current) amountRef.current.value = String(p);
-                                        setAmountValid(Number(p) > 0);
+                                        setAmountValid(isValidDonationAmount(p));
                                     }}
                                     className="chip"
                                 >
@@ -480,16 +512,18 @@ export default function PayForm({
                             type="tel"
                             className="input"
                             placeholder="0"
+                            defaultValue={minimumEnabled && minimumAmount > 0 ? String(minimumAmount) : ''}
                             style={{flex: 1, minWidth: 0, fontSize: 16}}
                             onInput={(e) => {
                                 const n = Number(String(e.currentTarget.value || '').replace(',', '.'));
-                                setAmountValid(Number.isFinite(n) && n > 0);
+                                setAmountValid(isValidDonationAmount(n));
                             }}
                             disabled={disabled}
                         />
                         <span
                             style={{fontSize: 14, color: 'var(--brand-muted)', whiteSpace: 'nowrap'}}>{currency}</span>
                     </div>
+
                 </section>
             ) : (
                 <section className="card" style={disabled ? {opacity: 0.6, pointerEvents: 'none'} : undefined}>

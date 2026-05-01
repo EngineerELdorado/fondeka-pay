@@ -101,6 +101,7 @@ function normalizeData(d) {
         currency: d.currency ?? 'USD',
         amount: toNum(d.amount),
         totalCollected: toNum(d.totalCollected) ?? 0,
+        minimumAmountEnabled: d.minimumAmountEnabled === true,
         minAmount: toNum(d.minAmount),
         maxAmount: toNum(d.maxAmount),
         checkoutToken: d.checkoutToken ?? '',
