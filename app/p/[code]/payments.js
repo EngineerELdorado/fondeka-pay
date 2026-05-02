@@ -3,7 +3,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { API_BASE } from '../../../lib/api'; // uses NEXT_PUBLIC_API_BASE
-import { detectPayFormLanguage } from './utils/payform-i18n';
+import { detectPayFormLanguage, normalizePayFormLanguage, withPublicLanguageHeaders } from './utils/payform-i18n';
 
 const PAYMENTS_MESSAGES = {
     en: {
@@ -13,7 +13,7 @@ const PAYMENTS_MESSAGES = {
         refreshAria: 'Refresh',
         noPayments: 'No payments yet',
         noPaymentsHint: 'Payments will appear here as they come in.',
-        anonymous: 'Anonymous',
+        anonymous: 'Anonymous donor',
         loadError: 'Unable to load payments.',
     },
     fr: {
@@ -23,7 +23,7 @@ const PAYMENTS_MESSAGES = {
         refreshAria: 'Rafraîchir',
         noPayments: 'Aucun paiement',
         noPaymentsHint: 'Les paiements apparaîtront ici au fur et à mesure.',
-        anonymous: 'Anonyme',
+        anonymous: 'Donateur anonyme',
         loadError: 'Impossible de charger les paiements.',
     },
 };
@@ -35,9 +35,10 @@ export default function PaymentsFeed({
     requestType = 'QUICK_CHARGE',
     totalCollected = 0,
     showRecentPaymentsPublicly = true,
+    initialLanguage = 'en',
 }) {
-    const [language, setLanguage] = useState('fr');
-    const messages = useMemo(() => PAYMENTS_MESSAGES[language] || PAYMENTS_MESSAGES.fr, [language]);
+    const [language, setLanguage] = useState(normalizePayFormLanguage(initialLanguage));
+    const messages = useMemo(() => PAYMENTS_MESSAGES[language] || PAYMENTS_MESSAGES.en, [language]);
     const [items, setItems] = useState([]);
     const [error, setError] = useState(null);
 
@@ -77,7 +78,14 @@ export default function PaymentsFeed({
     );
 
     const fmtDate = (iso) => {
-        try { return new Date(iso).toLocaleString(); } catch { return iso || '—'; }
+        try {
+            return new Date(iso).toLocaleString(language, {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+            });
+        } catch {
+            return iso || '—';
+        }
     };
     const collectedAmount = Number.isFinite(Number(totalCollected)) ? Number(totalCollected) : 0;
     const canShowRecentPayments = showRecentPaymentsPublicly === true;
@@ -99,7 +107,7 @@ export default function PaymentsFeed({
 
         try {
             const url = `${API_BASE}/public/payment-requests/${encodeURIComponent(publicCode)}/payments?page=${p}&size=${pageSize}`;
-            const res = await fetch(url, { cache: 'no-store', signal: ac.signal });
+            const res = await fetch(url, withPublicLanguageHeaders({ cache: 'no-store', signal: ac.signal }, language));
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const json = await res.json();
 
@@ -125,7 +133,10 @@ export default function PaymentsFeed({
     }, [canShowRecentPayments, messages.loadError, pageSize, publicCode]);
 
     useEffect(() => {
-        setLanguage(detectPayFormLanguage());
+        setLanguage((prev) => {
+            const detected = detectPayFormLanguage();
+            return detected === prev ? prev : detected;
+        });
     }, []);
 
     // initialize per code

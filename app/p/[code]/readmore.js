@@ -1,14 +1,16 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { getPayFormMessages, normalizePayFormLanguage } from './utils/payform-i18n';
 
 /**
  * Clamp long text with a “Lire plus / Lire moins” toggle.
  * @param {string} text
  * @param {number} collapsedChars - how many characters to show when collapsed
  */
-export default function ReadMore({ text = '', collapsedChars = 280 }) {
+export default function ReadMore({ text = '', collapsedChars = 280, language = 'en' }) {
     const [open, setOpen] = useState(false);
+    const messages = getPayFormMessages(normalizePayFormLanguage(language));
 
     const { head, tail, needsClamp } = useMemo(() => {
         if (!text || text.length <= collapsedChars) {
@@ -31,7 +33,7 @@ export default function ReadMore({ text = '', collapsedChars = 280 }) {
                     onClick={() => setOpen((v) => !v)}
                     style={{ padding: '8px 12px', marginTop: 6 }}
                 >
-                    {open ? 'Lire moins' : 'Lire plus'}
+                    {open ? messages.readLess : messages.readMore}
                 </button>
             )}
         </div>

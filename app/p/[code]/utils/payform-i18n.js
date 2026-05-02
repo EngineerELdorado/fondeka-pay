@@ -26,6 +26,7 @@ const PAYFORM_MESSAGES = {
             requestConflict: 'Request conflict. Retrying.',
             generic: 'Something went wrong.',
         },
+        fieldLabelFallback: 'Field {index}',
         amountLabel: 'How much do you want to send?',
         minimumDonation: 'Minimum donation: {amount}',
         collectedSoFar: 'Collected so far',
@@ -59,6 +60,29 @@ const PAYFORM_MESSAGES = {
         copyAddress: 'Copy address',
         mobileMoneyModalTitle: 'Confirm on your phone',
         mobileMoneyModalMessage: 'We sent a payment request to {hint}. Check the phone linked to this number and approve the transaction.',
+        createdBy: 'Created by',
+        home: 'Home',
+        retry: 'Try again',
+        details: 'Details',
+        payment: 'Payment',
+        collection: 'Fundraiser',
+        invoice: 'Invoice',
+        donate: 'Donate',
+        goToPaymentForm: 'Go to payment form',
+        share: 'Share',
+        linkCopied: 'Link copied to clipboard',
+        readMore: 'Read more',
+        readLess: 'Read less',
+        anonymousDonor: 'Anonymous donor',
+        publicPaymentDescription: 'Payments by link / QR - Fondeka',
+        serverError: 'Server error ({status})',
+        connectionError: 'Unable to connect to the server.',
+        suspendedCollection: 'Collection suspended',
+        cancelledCollection: 'Collection cancelled',
+        expiredCollection: 'Collection expired',
+        goalReached: 'Goal reached - campaign closed',
+        requestClosed: 'Request closed (already paid)',
+        paymentsUnavailable: 'Payments unavailable right now',
     },
     fr: {
         locale: 'fr',
@@ -87,6 +111,7 @@ const PAYFORM_MESSAGES = {
             requestConflict: 'Conflit de requête. Nouvelle tentative.',
             generic: 'Une erreur est survenue.',
         },
+        fieldLabelFallback: 'Champ {index}',
         amountLabel: 'Combien voulez-vous envoyer ?',
         minimumDonation: 'Don minimum : {amount}',
         collectedSoFar: 'Montant collecté',
@@ -120,25 +145,81 @@ const PAYFORM_MESSAGES = {
         copyAddress: 'Copier l’adresse',
         mobileMoneyModalTitle: 'Confirmez sur votre téléphone',
         mobileMoneyModalMessage: 'Nous avons envoyé une demande de paiement à {hint}. Vérifiez le téléphone lié à ce numéro et validez l’opération.',
+        createdBy: 'Créé par',
+        home: 'Accueil',
+        retry: 'Réessayer',
+        details: 'Détail',
+        payment: 'Paiement',
+        collection: 'Collecte',
+        invoice: 'Facture',
+        donate: 'Faire un don',
+        goToPaymentForm: 'Aller au formulaire de paiement',
+        share: 'Partager',
+        linkCopied: 'Lien copié dans le presse-papiers',
+        readMore: 'Lire plus',
+        readLess: 'Lire moins',
+        anonymousDonor: 'Donateur anonyme',
+        publicPaymentDescription: 'Paiements via lien / QR - Fondeka',
+        serverError: 'Erreur serveur ({status})',
+        connectionError: 'Connexion au serveur impossible.',
+        suspendedCollection: 'Collecte suspendue',
+        cancelledCollection: 'Collecte annulée',
+        expiredCollection: 'Collecte expirée',
+        goalReached: 'Objectif atteint - campagne clôturée',
+        requestClosed: 'Demande clôturée (déjà réglée)',
+        paymentsUnavailable: 'Paiements indisponibles pour le moment',
     },
 };
 
+export function normalizePayFormLanguage(candidate) {
+    const normalized = String(candidate || '').toLowerCase();
+    if (normalized.startsWith('fr')) return 'fr';
+    if (normalized.startsWith('en')) return 'en';
+    return 'en';
+}
+
+export function detectPayFormLanguageFromHeader(headerValue) {
+    const candidates = String(headerValue || '')
+        .split(',')
+        .map((part) => part.trim().split(';')[0])
+        .filter(Boolean);
+
+    for (const candidate of candidates) {
+        const language = normalizePayFormLanguage(candidate);
+        if (language === 'fr' || language === 'en') return language;
+    }
+
+    return 'en';
+}
+
 export function detectPayFormLanguage() {
-    if (typeof navigator === 'undefined') return 'fr';
+    if (typeof navigator === 'undefined') return 'en';
     const candidates = Array.isArray(navigator.languages) && navigator.languages.length
         ? navigator.languages
         : [navigator.language].filter(Boolean);
 
     for (const candidate of candidates) {
-        const normalized = String(candidate || '').toLowerCase();
-        if (normalized.startsWith('fr')) return 'fr';
-        if (normalized.startsWith('en')) return 'en';
+        const language = normalizePayFormLanguage(candidate);
+        if (language === 'fr' || language === 'en') return language;
     }
     return 'en';
 }
 
 export function getPayFormMessages(language) {
-    return PAYFORM_MESSAGES[language] || PAYFORM_MESSAGES.fr;
+    return PAYFORM_MESSAGES[normalizePayFormLanguage(language)] || PAYFORM_MESSAGES.en;
+}
+
+export function withPublicLanguageHeaders(init = {}, language) {
+    const headers = new Headers(init?.headers || undefined);
+    headers.set('Accept-Language', normalizePayFormLanguage(language));
+    return { ...init, headers };
+}
+
+export function getLocalizedBankInstructions(method = {}, language) {
+    const locale = normalizePayFormLanguage(language);
+    if (locale === 'fr' && method.bankInstructionsFr) return method.bankInstructionsFr;
+    if (locale === 'en' && method.bankInstructionsEn) return method.bankInstructionsEn;
+    return method.bankInstructions || method.bankInstructionsEn || method.bankInstructionsFr || '';
 }
 
 export function interpolate(template, values = {}) {

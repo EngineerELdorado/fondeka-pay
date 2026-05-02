@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { GROUP_ORDER } from '../utils/payform-helpers';
 import {API_BASE} from "../../../../lib/api";
+import { getLocalizedBankInstructions, withPublicLanguageHeaders } from '../utils/payform-i18n';
 
-export default function usePaymentMethods(countryCode) {
+export default function usePaymentMethods(countryCode, language) {
     const [methods, setMethods] = useState([]);
     const [grouped, setGrouped] = useState({});
     const [methodId, setMethodId] = useState(null);     // start with NO selection
@@ -14,11 +15,14 @@ export default function usePaymentMethods(countryCode) {
             try {
                 const res = await fetch(
                     `${API_BASE}/public/payment-requests/payment-methods?type=COLLECTION&countryCode=${encodeURIComponent(countryCode)}`,
-                    { cache: 'no-store' }
+                    withPublicLanguageHeaders({ cache: 'no-store' }, language)
                 );
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const list = await res.json();
-                const arr = Array.isArray(list) ? list : [];
+                const arr = (Array.isArray(list) ? list : []).map((method) => ({
+                    ...method,
+                    bankInstructions: getLocalizedBankInstructions(method, language),
+                }));
                 if (!mounted) return;
                 setMethods(arr);
 
@@ -37,7 +41,7 @@ export default function usePaymentMethods(countryCode) {
             }
         })();
         return () => { mounted = false; };
-    }, [countryCode]);
+    }, [countryCode, language]);
 
     return { methods, grouped, methodId, setMethodId, error };
 }

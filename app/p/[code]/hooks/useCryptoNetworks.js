@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import {API_BASE} from "../../../../lib/api";
+import { withPublicLanguageHeaders } from '../utils/payform-i18n';
 
-export default function useCryptoNetworks(isCrypto, methodId) {
+export default function useCryptoNetworks(isCrypto, methodId, language) {
     const [networks, setNetworks] = useState([]);
     const [networkId, setNetworkId] = useState(null);
     const [error, setError] = useState(null);
@@ -11,7 +12,10 @@ export default function useCryptoNetworks(isCrypto, methodId) {
         if (!isCrypto || !methodId) { setNetworks([]); setNetworkId(null); return; }
         (async () => {
             try {
-                const res = await fetch(`${API_BASE}/public/payment-requests/payment-methods/${methodId}/networks`, { cache: 'no-store' });
+                const res = await fetch(
+                    `${API_BASE}/public/payment-requests/payment-methods/${methodId}/networks`,
+                    withPublicLanguageHeaders({ cache: 'no-store' }, language)
+                );
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const nets = await res.json();
                 const arr = Array.isArray(nets) ? nets : [];
@@ -23,7 +27,7 @@ export default function useCryptoNetworks(isCrypto, methodId) {
             }
         })();
         return () => { mounted = false; };
-    }, [isCrypto, methodId]);
+    }, [isCrypto, language, methodId]);
 
     return { networks, networkId, setNetworkId, error };
 }

@@ -4,10 +4,12 @@ import React, { useState } from 'react';
 import GalleryLightbox from './gallery';
 import ReadMore from './readmore';
 import ShareButton from "./components/ShareButton";
+import { getPayFormMessages, normalizePayFormLanguage } from './utils/payform-i18n';
 
-export default function LightboxClient({ ytId, cover, otherImages = [], story, images = [], currentUrl, isDonation, data }) {
+export default function LightboxClient({ ytId, cover, otherImages = [], story, images = [], currentUrl, isDonation, title, language = 'en' }) {
     const [open, setOpen] = useState(false);
     const [startIndex, setStartIndex] = useState(0);
+    const messages = getPayFormMessages(normalizePayFormLanguage(language));
 
     const onOpenIndex = (i) => { setStartIndex(i); setOpen(true); };
 
@@ -19,7 +21,7 @@ export default function LightboxClient({ ytId, cover, otherImages = [], story, i
                     <div style={{ position: 'relative', width: '100%', paddingBottom: '56.25%', borderRadius: 12, overflow: 'hidden' }}>
                         <iframe
                             src={`https://www.youtube.com/embed/${ytId}`}
-                            title="YouTube video"
+                            title={language === 'fr' ? 'Vidéo YouTube' : 'YouTube video'}
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                             allowFullScreen
                             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
@@ -36,7 +38,7 @@ export default function LightboxClient({ ytId, cover, otherImages = [], story, i
                         style={{ width: '100%', aspectRatio: '16/9', background: '#F3F8F5' }}
                     >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={cover} alt="Couverture" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <img src={cover} alt={language === 'fr' ? 'Couverture' : 'Cover image'} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                     </div>
                 </section>
             )}
@@ -58,7 +60,7 @@ export default function LightboxClient({ ytId, cover, otherImages = [], story, i
                             <img
                                 key={`${src}-${idx}`}
                                 src={src}
-                                alt={`Image ${idx + 2}`}
+                                alt={`${language === 'fr' ? 'Image' : 'Image'} ${idx + 2}`}
                                 onClick={() => onOpenIndex( (cover ? 1 : 0) + idx )}
                                 style={{
                                     width: '100%',
@@ -78,11 +80,11 @@ export default function LightboxClient({ ytId, cover, otherImages = [], story, i
             {/* Donation-only actions — now BELOW media, centered */}
             {isDonation && (
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 12, marginBottom: 8 }}>
-                    <ShareButton url={currentUrl} title={data?.title} cover={cover} />
+                    <ShareButton url={currentUrl} title={title} cover={cover} language={language} />
                     <a
                         className="chip"
                         href="#pay-form"
-                        aria-label="Aller au formulaire de paiement"
+                        aria-label={messages.goToPaymentForm}
                         style={{
                             textDecoration: 'none',
                             display: 'inline-flex',
@@ -96,7 +98,7 @@ export default function LightboxClient({ ytId, cover, otherImages = [], story, i
                         <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
                             <path d="M12 21s-6.716-4.594-9.09-7.09C.579 11.56.79 8.27 3.05 6.51a5 5 0 0 1 6.58.57L12 8.58l2.37-1.5a5 5 0 0 1 6.58-.57c2.26 1.76 2.47 5.05.14 7.4C18.716 16.406 12 21 12 21z" fill="#4F805C"/>
                         </svg>
-                        Donate
+                        {messages.donate}
                     </a>
                 </div>
             )}
@@ -105,8 +107,8 @@ export default function LightboxClient({ ytId, cover, otherImages = [], story, i
             {/* 4) Story */}
             {story && (
                 <section className="card card--plain">
-                    <h3 className="card-title" style={{ marginBottom: 6 }}>About</h3>
-                    <ReadMore text={story} collapsedChars={320} />
+                    <h3 className="card-title" style={{ marginBottom: 6 }}>{language === 'fr' ? 'À propos' : 'About'}</h3>
+                    <ReadMore text={story} collapsedChars={320} language={language} />
                 </section>
             )}
 

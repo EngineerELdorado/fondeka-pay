@@ -6,13 +6,26 @@ import { notFound } from 'next/navigation';
 import { cookies, headers } from 'next/headers';
 import ShareButton from "./components/ShareButton";
 import React from "react";
+import {
+    detectPayFormLanguageFromHeader,
+    getPayFormMessages,
+    interpolate,
+    withPublicLanguageHeaders,
+} from './utils/payform-i18n';
 
 /* -------------------- dynamic metadata (OG/Twitter image) -------------------- */
 export async function generateMetadata({ params }) {
+    const hdr = headers();
+    const language = detectPayFormLanguageFromHeader(hdr.get('accept-language'));
+    const messages = getPayFormMessages(language);
+
     // fetch data
     async function fetchPublicLink(code) {
         try {
-            const res = await fetch(`${API_BASE}/public/payment-requests/${code}`, { cache: 'no-store' });
+            const res = await fetch(
+                `${API_BASE}/public/payment-requests/${code}`,
+                withPublicLanguageHeaders({ cache: 'no-store' }, language)
+            );
             if (!res.ok) return null;
             return res.json();
         } catch {
@@ -24,10 +37,9 @@ export async function generateMetadata({ params }) {
     if (!raw) return {};
 
     const title = raw.title || 'Fondeka Pay';
-    const description = raw.description || 'Paiements via lien / QR – Fondeka';
+    const description = raw.description || messages.publicPaymentDescription;
 
     // Build absolute base URL from request (important for OG/Twitter crawlers)
-    const hdr   = headers();
     const proto = hdr.get('x-forwarded-proto') || 'https';
     const host  = hdr.get('x-forwarded-host') || hdr.get('host') || 'pay.fondeka.com';
     const base  = `${proto}://${host}`;
@@ -70,24 +82,29 @@ export async function generateMetadata({ params }) {
 
 /* ------------------------- data fetching & helpers ------------------------- */
 
-async function fetchPublicLink(code) {
+async function fetchPublicLink(code, language) {
     try {
-        const res = await fetch(`${API_BASE}/public/payment-requests/${code}`, { cache: 'no-store' });
+        const res = await fetch(
+            `${API_BASE}/public/payment-requests/${code}`,
+            withPublicLanguageHeaders({ cache: 'no-store' }, language)
+        );
         if (res.status === 404) return null;
-        if (!res.ok) return { __error: `Erreur serveur (${res.status})` };
+        if (!res.ok) return { __error: interpolate(getPayFormMessages(language).serverError, { status: res.status }) };
         return res.json();
     } catch {
-        return { __error: 'Connexion au serveur impossible.' };
+        return { __error: getPayFormMessages(language).connectionError };
     }
 }
 
-function normalizeData(d) {
+function normalizeData(d, messages) {
     if (!d || d.__error) return d;
     const payerFields = Array.isArray(d.payerFields)
         ? d.payerFields
             .map((field, index) => ({
                 key: typeof field?.key === 'string' ? field.key.trim() : '',
-                label: typeof field?.label === 'string' && field.label.trim() ? field.label.trim() : `Field ${index + 1}`,
+                label: typeof field?.label === 'string' && field.label.trim()
+                    ? field.label.trim()
+                    : interpolate(messages.fieldLabelFallback, { index: index + 1 }),
                 required: field?.required === true,
             }))
             .filter((field) => field.key)
@@ -137,31 +154,34 @@ const getYouTubeId = (url) => {
 };
 
 /* --------------------------- lifecycle evaluation -------------------------- */
-function evaluatePayability(type, lifecycle) {
+function evaluatePayability(type, lifecycle, messages) {
     const l = String(lifecycle || '').toUpperCase();
     const t = String(type || '').toUpperCase();
     if (l === 'ACTIVE') return { canPay: true, reason: null, tone: null };
     if (['SUSPENDED', 'CANCELLED', 'CANCELED', 'EXPIRED'].includes(l)) {
         const map = {
-            SUSPENDED: 'Collecte suspendue',
-            CANCELLED: 'Collecte annulée',
-            CANCELED: 'Collecte annulée',
-            EXPIRED: 'Collecte expirée'
+            SUSPENDED: messages.suspendedCollection,
+            CANCELLED: messages.cancelledCollection,
+            CANCELED: messages.cancelledCollection,
+            EXPIRED: messages.expiredCollection
         };
-        return { canPay: false, reason: map[l] || 'Paiements indisponibles', tone: 'warn' };
+        return { canPay: false, reason: map[l] || messages.paymentsUnavailable, tone: 'warn' };
     }
     if (l === 'COMPLETED') {
         return t === 'DONATION'
-            ? { canPay: false, reason: 'Objectif atteint — campagne clôturée', tone: 'info' }
-            : { canPay: false, reason: 'Demande clôturée (déjà réglée)', tone: 'info' };
+            ? { canPay: false, reason: messages.goalReached, tone: 'info' }
+            : { canPay: false, reason: messages.requestClosed, tone: 'info' };
     }
-    return { canPay: false, reason: 'Paiements indisponibles pour le moment', tone: 'muted' };
+    return { canPay: false, reason: messages.paymentsUnavailable, tone: 'muted' };
 }
 
 /* ---------------------------------- page ---------------------------------- */
 
 export default async function Page({ params }) {
-    const raw = await fetchPublicLink(params.code);
+    const hdr = headers();
+    const language = detectPayFormLanguageFromHeader(hdr.get('accept-language'));
+    const messages = getPayFormMessages(language);
+    const raw = await fetchPublicLink(params.code, language);
     if (raw === null) notFound();
 
     if (raw?.__error) {
@@ -171,11 +191,11 @@ export default async function Page({ params }) {
                 <div className="wrap">
                     <HeaderLogo />
                     <section className="card card--plain" style={{ borderColor: '#FECACA', background: '#FEF2F2' }}>
-                        <h1 className="h1" style={{ fontSize: 18, marginBottom: 6 }}>Oups…</h1>
-                        <p className="p-muted" style={{ color: '#991B1B' }}>{raw.__error || 'Une erreur est survenue.'}</p>
+                        <h1 className="h1" style={{ fontSize: 18, marginBottom: 6 }}>{messages.oops}</h1>
+                        <p className="p-muted" style={{ color: '#991B1B' }}>{raw.__error || messages.generic}</p>
                         <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                            <a href="/" className="tile">Accueil</a>
-                            <a href={retryHref} className="tile">Réessayer</a>
+                            <a href="/" className="tile">{messages.home}</a>
+                            <a href={retryHref} className="tile">{messages.retry}</a>
                         </div>
                     </section>
                 </div>
@@ -183,16 +203,15 @@ export default async function Page({ params }) {
         );
     }
 
-    const data = normalizeData(raw);
+    const data = normalizeData(raw, messages);
     const isDonation = data.type === 'DONATION';
     const isInvoice  = data.type === 'INVOICE';
     const canShowRecentPayments = data.showRecentPaymentsPublicly === true && isDonation;
-    const { canPay, reason } = evaluatePayability(data.type, data.lifecycle);
+    const { canPay, reason } = evaluatePayability(data.type, data.lifecycle, messages);
 
     // country detect (cookie → headers → default)
     const ck = cookies();
     let countryIso = ck.get('country_iso')?.value?.toUpperCase();
-    const hdr = headers();
     if (!countryIso) {
         countryIso =
             hdr.get('x-vercel-ip-country')?.toUpperCase() ||
@@ -224,12 +243,12 @@ export default async function Page({ params }) {
                 {/* Title / creator (no buttons here now) */}
                 <header style={{ marginBottom: 6 }}>
                     <h1 className="h1">
-                        {data.title || (isInvoice ? 'Facture' : isDonation ? 'Collecte' : 'Paiement')}
+                        {data.title || (isInvoice ? messages.invoice : isDonation ? messages.collection : messages.payment)}
                     </h1>
 
                     {data.creator && (
                         <div style={{ marginTop: 4, display: 'flex', gap: 6, alignItems: 'baseline', flexWrap: 'wrap' }}>
-                            <span style={{ color: 'var(--brand-muted)' }}>Created by</span>
+                            <span style={{ color: 'var(--brand-muted)' }}>{messages.createdBy}</span>
                             <strong style={{ color: 'var(--brand-primary)' }}>{data.creator}</strong>
                         </div>
                     )}
@@ -262,13 +281,15 @@ export default async function Page({ params }) {
                         currentUrl={currentUrl}
                         isDonation={isDonation}
                         images={[cover, ...otherImages].filter(Boolean)}
+                        title={data.title}
+                        language={language}
                     />
                 )}
 
                 {/* Invoice items */}
                 {isInvoice && items.length > 0 && (
                     <section className="card card--plain">
-                        <h3 className="card-title">Détail</h3>
+                        <h3 className="card-title">{messages.details}</h3>
                         <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {items.map((it) => (
                                 <div
@@ -302,6 +323,7 @@ export default async function Page({ params }) {
                     canPay={canPay}
                     disabledReason={reason}
                     totalCollected={data.totalCollected}
+                    initialLanguage={language}
                 />
 
                 {/* Endless payments list */}
@@ -312,15 +334,16 @@ export default async function Page({ params }) {
                         requestType={data.type}
                         totalCollected={data.totalCollected}
                         showRecentPaymentsPublicly={data.showRecentPaymentsPublicly}
+                        initialLanguage={language}
                     />
                 )}
                 {isDonation && (
                     <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 12, marginBottom: 8 }}>
-                        <ShareButton url={currentUrl} title={data?.title} cover={cover} />
+                        <ShareButton url={currentUrl} title={data?.title} cover={cover} language={language} />
                         <a
                             className="chip"
                             href="#pay-form"
-                            aria-label="Aller au formulaire de paiement"
+                            aria-label={messages.goToPaymentForm}
                             style={{
                                 textDecoration: 'none',
                                 display: 'inline-flex',
@@ -334,7 +357,7 @@ export default async function Page({ params }) {
                             <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M12 21s-6.716-4.594-9.09-7.09C.579 11.56.79 8.27 3.05 6.51a5 5 0 0 1 6.58.57L12 8.58l2.37-1.5a5 5 0 0 1 6.58-.57c2.26 1.76 2.47 5.05.14 7.4C18.716 16.406 12 21 12 21z" fill="#4F805C"/>
                             </svg>
-                            Donate
+                            {messages.donate}
                         </a>
                     </div>
                 )}

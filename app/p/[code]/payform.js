@@ -10,7 +10,13 @@ import {
     prettyError,
     shouldRefreshOnError,
 } from './utils/payform-helpers';
-import {detectPayFormLanguage, getPayFormMessages, interpolate} from './utils/payform-i18n';
+import {
+    detectPayFormLanguage,
+    getPayFormMessages,
+    interpolate,
+    normalizePayFormLanguage,
+    withPublicLanguageHeaders,
+} from './utils/payform-i18n';
 import COUNTRY_DATA from '../../../src/data/countries';
 
 import Accordion from './components/Accordion';
@@ -30,6 +36,7 @@ export default function PayForm({
                                     canPay = true,
                                     disabledReason = null,
                                     totalCollected = 0,
+                                    initialLanguage = 'en',
                                 }) {
     const disabled = !canPay;
 
@@ -42,7 +49,7 @@ export default function PayForm({
     const collectedAmount = Number.isFinite(Number(totalCollected)) ? Number(totalCollected) : 0;
 
     const [checkoutToken, setCheckoutToken] = useState(data.checkoutToken || '');
-    const [language, setLanguage] = useState('fr');
+    const [language, setLanguage] = useState(normalizePayFormLanguage(initialLanguage));
     const messages = useMemo(() => getPayFormMessages(language), [language]);
     const errorMessages = messages.errors;
 
@@ -55,12 +62,12 @@ export default function PayForm({
     );
 
     // Hooks now DO NOT auto-select a method; methodId starts as null
-    const {methods, grouped, methodId, setMethodId, error: methodsError} = usePaymentMethods(countryCode);
+    const {methods, grouped, methodId, setMethodId, error: methodsError} = usePaymentMethods(countryCode, language);
     const selectedMethod = methods.find(m => m.id === methodId) || null;
     const isCrypto = selectedMethod?.type === 'CRYPTO';
     const isMobile = selectedMethod?.type === 'MOBILE_MONEY';
 
-    const {networks, networkId, setNetworkId, error: networksError} = useCryptoNetworks(isCrypto, methodId);
+    const {networks, networkId, setNetworkId, error: networksError} = useCryptoNetworks(isCrypto, methodId, language);
 
     const amountRef = useRef(null);
     const phoneRef = useRef(null);
@@ -204,7 +211,10 @@ export default function PayForm({
     /* ---------- token refresh ---------- */
     const refreshCheckoutToken = async () => {
         if (!publicCode) throw new Error(errorMessages.publicCodeMissing);
-        const res = await fetch(`${API_BASE}/public/payment-requests/${encodeURIComponent(publicCode)}`, {cache: 'no-store'});
+        const res = await fetch(
+            `${API_BASE}/public/payment-requests/${encodeURIComponent(publicCode)}`,
+            withPublicLanguageHeaders({cache: 'no-store'}, language)
+        );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const link = await res.json();
         if (!link.checkoutToken) throw new Error(errorMessages.tokenUnavailable);
@@ -223,7 +233,7 @@ export default function PayForm({
         setQuoteLoading(true);
         setQuoteError(null);
         try {
-            const res = await fetch(url, { cache: 'no-store' });
+            const res = await fetch(url, withPublicLanguageHeaders({ cache: 'no-store' }, language));
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const j = await res.json();
             setQuote(j);
@@ -334,7 +344,9 @@ export default function PayForm({
                 idempotencyKey: idemKey,
             };
             return http(`${API_BASE}/public/payment-requests/pay`, {
-                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Accept-Language': language},
+                body: JSON.stringify(body)
             });
         };
 
@@ -373,7 +385,7 @@ export default function PayForm({
             const fresh = await refreshCheckoutToken();
             const res = await http(`${API_BASE}/public/payment-requests/pay`, {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {'Content-Type': 'application/json', 'Accept-Language': language},
                 body: JSON.stringify({
                     checkoutToken: fresh,
                     paymentMethodId: methodId,
@@ -396,7 +408,7 @@ export default function PayForm({
 
     useEffect(() => {
         const nextLanguage = detectPayFormLanguage();
-        setLanguage(nextLanguage);
+        setLanguage((prev) => nextLanguage === prev ? prev : nextLanguage);
         if (typeof document !== 'undefined') {
             document.documentElement.lang = nextLanguage;
         }

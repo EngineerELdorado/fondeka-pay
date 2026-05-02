@@ -1,9 +1,14 @@
 'use client';
 
 import React from 'react';
+import { getPayFormMessages, normalizePayFormLanguage } from '../utils/payform-i18n';
 
-export default function ShareButton({ url, title, cover }) {
-    const text = title ? `Je soutiens « ${title} » sur Fondeka` : 'Je soutiens cette collecte sur Fondeka';
+export default function ShareButton({ url, title, cover, language = 'en' }) {
+    const locale = normalizePayFormLanguage(language);
+    const messages = getPayFormMessages(locale);
+    const text = locale === 'fr'
+        ? (title ? `Je soutiens « ${title} » sur Fondeka` : 'Je soutiens cette collecte sur Fondeka')
+        : (title ? `I’m supporting "${title}" on Fondeka` : 'I’m supporting this fundraiser on Fondeka');
 
     async function onShare() {
         try {
@@ -22,8 +27,7 @@ export default function ShareButton({ url, title, cover }) {
 
             // Final fallback: copy URL to clipboard
             await navigator.clipboard.writeText(url);
-            // Use a minimal, non-blocking toast if you want; keeping alert() for simplicity:
-            alert('Lien copié dans le presse-papiers');
+            alert(messages.linkCopied);
         } catch {
             // user cancelled or sharing failed — ignore
         }
@@ -34,14 +38,14 @@ export default function ShareButton({ url, title, cover }) {
             type="button"
             className="chip"
             onClick={onShare}
-            aria-label="Partager"
+            aria-label={messages.share}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 800, color: '#4F805C' }}
         >
             {/* share icon */}
             <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M18 8a3 3 0 1 0-2.83-4H15a3 3 0 0 0 0 6c.54 0 1.05-.14 1.5-.38l-6 3a3 3 0 1 0 0 3l6 3A3 3 0 1 0 18 16a3 3 0 0 0-1.5.38l-6-3A3 3 0 0 0 10.5 12l6-3c.45.24.96.38 1.5.38Z" fill="#4F805C"/>
             </svg>
-            Share
+            {messages.share}
         </button>
     );
 }
