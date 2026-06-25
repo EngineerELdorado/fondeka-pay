@@ -493,6 +493,8 @@ body{
     .country-sheet{ padding-left: 12px; padding-right: 12px; }
     .country-list{ max-height: 56vh; }
     .country-row{ min-height: 62px; }
+    .donation-action-button--share{ margin-left: 10px; }
+    .donation-action-button--donate{ margin-right: 10px; }
 }
 
 @media (min-width: 600px){
