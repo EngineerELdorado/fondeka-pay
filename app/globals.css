@@ -428,27 +428,30 @@ body{
 
 /* Donation page action buttons */
 .donation-action-button{
-    min-width: 136px;
+    box-sizing: border-box;
+    flex: 0 0 142px;
+    width: 142px;
+    max-width: 142px;
     min-height: 38px;
     justify-content: center;
     padding: 7px 18px;
     border-color: rgba(79,128,92,0.28);
     background: #fff;
-    box-shadow: 0 10px 22px rgba(15,23,42,0.08), 0 4px 10px rgba(79,128,92,0.10);
+    box-shadow: 0 6px 14px rgba(15,23,42,0.06), 0 2px 6px rgba(79,128,92,0.07);
     transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
 }
 .donation-action-button:hover{
-    transform: translateY(-1px);
+    transform: translateY(-0.5px);
     border-color: rgba(79,128,92,0.42);
-    box-shadow: 0 14px 28px rgba(15,23,42,0.10), 0 5px 12px rgba(79,128,92,0.13);
+    box-shadow: 0 8px 18px rgba(15,23,42,0.07), 0 3px 8px rgba(79,128,92,0.09);
 }
 .donation-action-button--donate{
     background: var(--brand-primary-soft);
     border-color: rgba(79,128,92,0.38);
-    box-shadow: 0 12px 26px rgba(79,128,92,0.16), 0 4px 10px rgba(15,23,42,0.07);
+    box-shadow: 0 7px 16px rgba(79,128,92,0.10), 0 2px 7px rgba(15,23,42,0.05);
 }
 .donation-action-button--donate:hover{
-    box-shadow: 0 16px 32px rgba(79,128,92,0.19), 0 6px 12px rgba(15,23,42,0.08);
+    box-shadow: 0 9px 20px rgba(79,128,92,0.12), 0 3px 8px rgba(15,23,42,0.06);
 }
 
 /* ——— Mobile bump: increase minimum sizes on narrow screens ——— */
