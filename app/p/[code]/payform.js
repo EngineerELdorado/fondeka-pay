@@ -110,7 +110,12 @@ export default function PayForm({
         return init;
     }, []);
 
-    // ACCORDIONS: all collapsed by default; ONLY user clicks toggle them
+    const firstAvailableGroup = useMemo(
+        () => GROUP_ORDER.find(t => grouped[t]?.length),
+        [grouped]
+    );
+
+    // ACCORDIONS: open the highest-priority available group by default; user clicks still control them after that.
     const [expanded, setExpanded] = useState(() => makeCollapsedState());
     const onToggleAccordion = useCallback((typeKey) => {
         setExpanded(prev => {
@@ -434,6 +439,16 @@ export default function PayForm({
         setPhoneValid(false);
         setCountryQuery('');
     }, [countryCode, makeCollapsedState, setMethodId, setNetworkId]);
+
+    useEffect(() => {
+        if (!firstAvailableGroup) return;
+        setExpanded(prev => {
+            if (GROUP_ORDER.some(t => prev[t])) return prev;
+            const next = makeCollapsedState();
+            next[firstAvailableGroup] = true;
+            return next;
+        });
+    }, [firstAvailableGroup, makeCollapsedState]);
 
     useEffect(() => {
         setDynamicPayerFieldValues(() => (
