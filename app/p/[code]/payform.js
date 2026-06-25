@@ -815,6 +815,8 @@ export default function PayForm({
 const COUNTRY_OPTIONS = COUNTRY_DATA.map((country) => ({
     code: country.cca2,
     name: country.name,
+    callingCode: country.callingCode,
+    flag: country.flag,
 }));
 
 const COUNTRY_CALLING_CODES = COUNTRY_DATA.reduce((acc, country) => {
@@ -838,77 +840,65 @@ function CountryPickerModal({open, onClose, countries, query, onQueryChange, sel
         <div
             role="dialog"
             aria-modal="true"
-            style={{
-                position: 'fixed',
-                inset: 0,
-                zIndex: 9999,
-                background: 'rgba(0,0,0,0.45)',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'flex-end',
-                padding: 0,
-            }}
+            className="country-sheet-backdrop"
             onClick={onClose}
         >
             <div
                 onClick={(e) => e.stopPropagation()}
-                style={{
-                    width: '100%',
-                    maxWidth: 520,
-                    borderTopLeftRadius: 18,
-                    borderTopRightRadius: 18,
-                    background: '#fff',
-                    padding: '16px 16px 20px',
-                    boxShadow: '0 -12px 30px rgba(0,0,0,0.25)',
-                    animation: 'sheetUp .25s ease',
-                }}
+                className="country-sheet"
             >
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                    <h3 className="card-title" style={{margin: 0}}>{messages.countryPickerTitle}</h3>
-                    <button onClick={onClose} className="tile" style={{padding: '6px 10px'}}>{messages.close}</button>
+                <div className="country-sheet-handle" aria-hidden="true" />
+
+                <div className="country-sheet-header">
+                    <div>
+                        <h3 className="country-sheet-title">{messages.countryPickerTitle}</h3>
+                    </div>
+                    <button onClick={onClose} className="country-sheet-close">{messages.close}</button>
                 </div>
 
-                <input
-                    type="text"
-                    className="input"
-                    placeholder={messages.searchCountry}
-                    value={query}
-                    onChange={(e) => onQueryChange(e.currentTarget.value)}
-                    style={{marginTop: 12}}
-                />
+                <div className="country-search-wrap">
+                    <span className="country-search-icon" aria-hidden="true">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                            <path d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                    </span>
+                    <input
+                        type="text"
+                        className="input country-search-input"
+                        placeholder={messages.searchCountry}
+                        value={query}
+                        onChange={(e) => onQueryChange(e.currentTarget.value)}
+                    />
+                </div>
 
-                <div
-                    style={{
-                        marginTop: 12,
-                        maxHeight: '55vh',
-                        overflow: 'auto',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 8,
-                    }}
-                >
+                <div className="country-list">
                     {countries.length === 0 && (
-                        <div className="note" style={{padding: '12px 6px'}}>{messages.noCountriesFound}</div>
+                        <div className="country-empty-state">{messages.noCountriesFound}</div>
                     )}
-                    {countries.map((country) => (
-                        <button
-                            key={country.code}
-                            type="button"
-                            onClick={() => onSelect(country)}
-                            className="tile"
-                            style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                padding: '10px 12px',
-                                borderColor: country.code === selectedCode ? '#2563eb' : undefined,
-                                background: country.code === selectedCode ? '#eff6ff' : undefined,
-                            }}
-                        >
-                            <span style={{fontWeight: 600}}>{country.name}</span>
-                            <span style={{color: '#64748B', fontWeight: 700}}>{country.code}</span>
-                        </button>
-                    ))}
+                    {countries.map((country) => {
+                        const selected = country.code === selectedCode;
+                        return (
+                            <button
+                                key={country.code}
+                                type="button"
+                                onClick={() => onSelect(country)}
+                                className={`country-row${selected ? ' country-row--selected' : ''}`}
+                            >
+                                <span className="country-row-flag" aria-hidden="true">{country.flag}</span>
+                                <span className="country-row-main">
+                                    <span className="country-row-name">{country.name}</span>
+                                    <span className="country-row-meta">{country.code}{country.callingCode ? ` · +${country.callingCode}` : ''}</span>
+                                </span>
+                                <span className="country-row-check" aria-hidden="true">
+                                    {selected ? (
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                            <path d="m5 12 4 4L19 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                    ) : null}
+                                </span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
         </div>
