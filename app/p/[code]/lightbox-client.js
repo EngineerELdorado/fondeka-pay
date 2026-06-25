@@ -82,7 +82,7 @@ export default function LightboxClient({ ytId, cover, otherImages = [], story, i
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 12, marginBottom: 8 }}>
                     <ShareButton url={currentUrl} title={title} cover={cover} language={language} />
                     <a
-                        className="chip"
+                        className="chip donation-action-button donation-action-button--donate"
                         href="#pay-form"
                         aria-label={messages.goToPaymentForm}
                         style={{
