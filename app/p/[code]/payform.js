@@ -489,92 +489,98 @@ export default function PayForm({
 
     return (
         <div style={{display: 'flex', flexDirection: 'column', gap: 12, ...(disabled ? {opacity: 0.95} : null)}}>
-            {/* Amount */}
-            {isDonation ? (
-                <section className="card" style={disabled ? {opacity: 0.6, pointerEvents: 'none'} : undefined}>
-                    <label className="label">{messages.amountLabel}</label>
-
-                    {minimumEnabled && minimumAmount > 0 && (
-                        <p className="p-muted" style={{marginTop: 6}}>
-                            {interpolate(messages.minimumDonation, {amount: money(minimumAmount, currency, language)})}
-                        </p>
-                    )}
-
-                    {!!(Array.isArray(data.presets) && data.presets.length) && (
-                        <div style={{display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8}}>
-                            {data.presets.map((p, i) => (
-                                <button
-                                    key={`${p}-${i}`}
-                                    onClick={() => {
-                                        if (amountRef.current) amountRef.current.value = String(p);
-                                        setAmountValid(isValidDonationAmount(p));
-                                    }}
-                                    className="chip"
-                                >
-                                    {money(p, currency, language)}
-                                </button>
-                            ))}
+            <section className="payment-focus-panel" aria-label={messages.howToPay}>
+                {/* Amount */}
+                {isDonation ? (
+                    <section className="payment-amount-card" style={disabled ? {opacity: 0.6, pointerEvents: 'none'} : undefined}>
+                        <div className="payment-section-kicker">
+                            <span className="payment-section-index">1</span>
+                            <label className="payment-section-label">{messages.amountLabel}</label>
                         </div>
-                    )}
 
-                    <div style={{display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, minWidth: 0}}>
-                        <input
-                            ref={amountRef}
-                            inputMode="decimal"
-                            type="tel"
-                            className="input"
-                            placeholder="0"
-                            defaultValue={minimumEnabled && minimumAmount > 0 ? String(minimumAmount) : ''}
-                            style={{flex: 1, minWidth: 0, fontSize: 16}}
-                            onInput={(e) => {
-                                const n = Number(String(e.currentTarget.value || '').replace(',', '.'));
-                                setAmountValid(isValidDonationAmount(n));
-                            }}
-                            disabled={disabled}
-                        />
-                        <span
-                            style={{fontSize: 14, color: 'var(--brand-muted)', whiteSpace: 'nowrap'}}>{currency}</span>
-                    </div>
+                        {minimumEnabled && minimumAmount > 0 && (
+                            <p className="p-muted" style={{marginTop: 8}}>
+                                {interpolate(messages.minimumDonation, {amount: money(minimumAmount, currency, language)})}
+                            </p>
+                        )}
 
-                </section>
-            ) : (
-                <section className="card" style={disabled ? {opacity: 0.6, pointerEvents: 'none'} : undefined}>
-                    {showCollected && (
-                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', minWidth: 0, marginBottom: 8}}>
-                            <span className="label" style={{marginBottom: 0}}>{messages.collectedSoFar}</span>
-                            <strong style={{fontSize: 16, whiteSpace: 'nowrap'}}>{money(collectedAmount, currency || 'USD', language)}</strong>
+                        {!!(Array.isArray(data.presets) && data.presets.length) && (
+                            <div style={{display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12}}>
+                                {data.presets.map((p, i) => (
+                                    <button
+                                        key={`${p}-${i}`}
+                                        onClick={() => {
+                                            if (amountRef.current) amountRef.current.value = String(p);
+                                            setAmountValid(isValidDonationAmount(p));
+                                        }}
+                                        className="chip"
+                                    >
+                                        {money(p, currency, language)}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="payment-amount-input-row">
+                            <input
+                                ref={amountRef}
+                                inputMode="decimal"
+                                type="tel"
+                                className="input payment-amount-input"
+                                placeholder="0"
+                                defaultValue={minimumEnabled && minimumAmount > 0 ? String(minimumAmount) : ''}
+                                onInput={(e) => {
+                                    const n = Number(String(e.currentTarget.value || '').replace(',', '.'));
+                                    setAmountValid(isValidDonationAmount(n));
+                                }}
+                                disabled={disabled}
+                            />
+                            <span className="payment-currency-pill">{currency}</span>
                         </div>
-                    )}
-                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', minWidth: 0}}>
-                        <span className="label">{type === 'INVOICE' ? messages.totalToPay : messages.amount}</span>
-                        <strong style={{fontSize: 16, whiteSpace: 'nowrap'}}>{money(data.amount, currency, language)}</strong>
-                    </div>
-                </section>
-            )}
 
-            {/* Methods header */}
-            <div style={{marginTop: 2}}>
-                <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
-                    <span className="label" style={{marginBottom: 0, flex: 1}}>{messages.howToPay}</span>
+                    </section>
+                ) : (
+                    <section className="payment-amount-card" style={disabled ? {opacity: 0.6, pointerEvents: 'none'} : undefined}>
+                        {showCollected && (
+                            <div className="payment-collected-row">
+                                <span className="label" style={{marginBottom: 0}}>{messages.collectedSoFar}</span>
+                                <strong>{money(collectedAmount, currency || 'USD', language)}</strong>
+                            </div>
+                        )}
+                        <div className="payment-total-row">
+                            <div className="payment-section-kicker">
+                                <span className="payment-section-index">1</span>
+                                <span className="payment-section-label">{type === 'INVOICE' ? messages.totalToPay : messages.amount}</span>
+                            </div>
+                            <strong>{money(data.amount, currency, language)}</strong>
+                        </div>
+                    </section>
+                )}
+
+                {/* Methods header */}
+                <div className="payment-methods-heading">
+                    <div className="payment-section-kicker">
+                        <span className="payment-section-index">2</span>
+                        <span className="payment-section-label">{messages.howToPay}</span>
+                    </div>
                     <button
                         type="button"
-                        className="chip"
+                        className="chip payment-country-chip"
                         onClick={() => {
                             if (disabled) return;
                             setCountryQuery('');
                             setShowCountryPicker(true);
                         }}
-                        style={{display: 'inline-flex', alignItems: 'center', gap: 6}}
                         disabled={disabled}
                     >
-                        <span style={{fontWeight: 700}}>{selectedCountry.name}</span>
+                        <span style={{fontWeight: 800}}>{selectedCountry.name}</span>
                         <svg
                             aria-hidden="true"
                             width="14"
                             height="14"
                             viewBox="0 0 20 20"
                             fill="none"
-                            style={{display: 'block'}}
+                            style={{display: 'block', flex: '0 0 auto'}}
                         >
                             <path
                                 d="M5 7l5 5 5-5"
@@ -585,16 +591,15 @@ export default function PayForm({
                             />
                         </svg>
                     </button>
-                </div>
-                {disabledReason && (
-                    <span style={{display: 'block', color: '#64748B', fontSize: 14, marginTop: 4}}>
+                    {disabledReason && (
+                        <span style={{display: 'block', color: '#64748B', fontSize: 14, marginTop: 4, gridColumn: '1 / -1'}}>
                         {disabledReason}
                     </span>
-                )}
-            </div>
+                    )}
+                </div>
 
-            {/* Accordions — only one open at a time; each has its own form/CTA */}
-            <div style={disabled ? {opacity: 0.6, pointerEvents: 'none'} : undefined}>
+                {/* Accordions — only one open at a time; each has its own form/CTA */}
+                <div className="payment-method-list" style={disabled ? {opacity: 0.6, pointerEvents: 'none'} : undefined}>
                 {GROUP_ORDER.map((t) => {
                     const list = grouped[t];
                     if (!list?.length) return null;
@@ -710,7 +715,8 @@ export default function PayForm({
                         </Accordion>
                     );
                 })}
-            </div>
+                </div>
+            </section>
 
             {/* Modals */}
             {result?.rail === 'MM' && (
