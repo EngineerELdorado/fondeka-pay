@@ -36,7 +36,7 @@ export default function ShareButton({ url, title, cover, language = 'en' }) {
     return (
         <button
             type="button"
-            className="chip"
+            className="chip donation-action-button donation-action-button--share"
             onClick={onShare}
             aria-label={messages.share}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontWeight: 800, color: '#4F805C' }}
