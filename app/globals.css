@@ -84,7 +84,7 @@ body{
     box-shadow: 0 24px 58px rgba(15,23,42,0.13), 0 12px 30px rgba(79,128,92,0.16);
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
 }
 .payment-focus-panel::before{
     content: '';
@@ -94,11 +94,11 @@ body{
     background: linear-gradient(90deg, var(--brand-primary), #9BC7A8);
 }
 .payment-amount-card{
-    border: 1px solid rgba(79,128,92,0.24);
-    border-radius: 16px;
-    padding: 14px;
+    border: 1px solid rgba(79,128,92,0.32);
+    border-radius: 18px;
+    padding: 16px;
     background: #fff;
-    box-shadow: 0 14px 30px rgba(15,23,42,0.08), 0 6px 16px rgba(79,128,92,0.10);
+    box-shadow: 0 18px 36px rgba(15,23,42,0.09), 0 8px 20px rgba(79,128,92,0.13);
 }
 .payment-section-kicker{
     display: flex;
@@ -126,25 +126,58 @@ body{
     font-weight: 900;
     line-height: 1.25;
 }
+.payment-section-kicker--primary .payment-section-index{
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    box-shadow: 0 8px 16px rgba(79,128,92,0.22);
+}
+.payment-section-kicker--primary .payment-section-label{
+    font-size: 20px;
+    letter-spacing: 0;
+}
+.payment-section-kicker--secondary{
+    position: relative;
+    padding-top: 2px;
+}
+.payment-section-kicker--secondary::before{
+    content: '';
+    position: absolute;
+    left: 13px;
+    bottom: calc(100% + 6px);
+    width: 2px;
+    height: 16px;
+    border-radius: 999px;
+    background: rgba(79,128,92,0.22);
+}
+.payment-section-index--secondary{
+    background: var(--brand-primary-soft);
+    color: var(--brand-primary);
+    border: 1px solid rgba(79,128,92,0.28);
+}
+.payment-section-kicker--secondary .payment-section-label{
+    color: #1f2937;
+    font-size: 17px;
+}
 .payment-amount-input-row{
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-top: 12px;
+    margin-top: 14px;
     min-width: 0;
 }
 .payment-amount-input{
     flex: 1;
     min-width: 0;
-    height: 54px;
+    height: 60px;
     border-color: rgba(79,128,92,0.34);
-    font-size: 24px;
+    font-size: 28px;
     font-weight: 900;
     box-shadow: 0 8px 18px rgba(15,23,42,0.06), inset 0 1px 0 rgba(15,23,42,0.04);
 }
 .payment-currency-pill{
     min-width: 56px;
-    height: 54px;
+    height: 60px;
     padding: 0 12px;
     border: 1px solid rgba(79,128,92,0.24);
     border-radius: 12px;
@@ -168,7 +201,7 @@ body{
 }
 .payment-total-row strong{
     color: var(--brand-primary);
-    font-size: 28px;
+    font-size: 32px;
     line-height: 1.1;
     white-space: nowrap;
 }
@@ -186,6 +219,7 @@ body{
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: 10px;
+    padding-top: 2px;
 }
 .payment-country-chip{
     display: inline-flex;

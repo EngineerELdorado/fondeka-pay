@@ -508,7 +508,7 @@ export default function PayForm({
                 {/* Amount */}
                 {isDonation ? (
                     <section className="payment-amount-card" style={disabled ? {opacity: 0.6, pointerEvents: 'none'} : undefined}>
-                        <div className="payment-section-kicker">
+                        <div className="payment-section-kicker payment-section-kicker--primary">
                             <span className="payment-section-index">1</span>
                             <label className="payment-section-label">{messages.amountLabel}</label>
                         </div>
@@ -563,7 +563,7 @@ export default function PayForm({
                             </div>
                         )}
                         <div className="payment-total-row">
-                            <div className="payment-section-kicker">
+                            <div className="payment-section-kicker payment-section-kicker--primary">
                                 <span className="payment-section-index">1</span>
                                 <span className="payment-section-label">{type === 'INVOICE' ? messages.totalToPay : messages.amount}</span>
                             </div>
@@ -574,8 +574,8 @@ export default function PayForm({
 
                 {/* Methods header */}
                 <div className="payment-methods-heading">
-                    <div className="payment-section-kicker">
-                        <span className="payment-section-index">2</span>
+                    <div className="payment-section-kicker payment-section-kicker--secondary">
+                        <span className="payment-section-index payment-section-index--secondary">2</span>
                         <span className="payment-section-label">{messages.howToPay}</span>
                     </div>
                     <button
