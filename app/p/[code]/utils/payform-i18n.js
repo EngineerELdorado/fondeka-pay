@@ -117,7 +117,7 @@ const PAYFORM_MESSAGES = {
         collectedSoFar: 'Montant collecté',
         totalToPay: 'Total à payer',
         amount: 'Montant',
-        howToPay: 'Payer via',
+        howToPay: 'Moyens de paiement',
         network: 'Réseau',
         reviewAndPay: 'Vérifier et payer',
         calculating: 'Calcul en cours...',
