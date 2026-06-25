@@ -12,7 +12,7 @@ export const SquareTile = memo(function SquareTile({ active, onClick, logoUrl, n
     return (
         <button
             onClick={onClick}
-            className="tile"
+            className={`tile payment-method-tile${active ? ' payment-method-tile--active' : ''}`}
             disabled={disabled}
             style={{
                 borderColor: active ? 'var(--brand-primary)' : 'var(--brand-border)',

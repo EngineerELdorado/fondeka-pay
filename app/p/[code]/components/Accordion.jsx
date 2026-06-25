@@ -11,7 +11,7 @@ function ChevronDown({ size = 18, color = '#475569' }) {
 
 const Accordion = memo(function Accordion({ title, typeKey, open, onToggle, disabled, children }) {
     return (
-        <section className="card card--plain" style={{ background: '#fff' }}>
+        <section className="card card--plain payment-accordion-card" style={{ background: '#fff' }}>
             <button
                 type="button"
                 onClick={() => onToggle(typeKey)}
