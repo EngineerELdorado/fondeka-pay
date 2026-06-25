@@ -350,12 +350,12 @@ export default async function Page({ params }) {
                                 alignItems: 'center',
                                 gap: 8,
                                 fontWeight: 800,
-                                color: '#4F805C',
+                                color: '#fff',
                             }}
                         >
                             {/* Heart/Donate icon */}
                             <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M12 21s-6.716-4.594-9.09-7.09C.579 11.56.79 8.27 3.05 6.51a5 5 0 0 1 6.58.57L12 8.58l2.37-1.5a5 5 0 0 1 6.58-.57c2.26 1.76 2.47 5.05.14 7.4C18.716 16.406 12 21 12 21z" fill="#4F805C"/>
+                                <path d="M12 21s-6.716-4.594-9.09-7.09C.579 11.56.79 8.27 3.05 6.51a5 5 0 0 1 6.58.57L12 8.58l2.37-1.5a5 5 0 0 1 6.58-.57c2.26 1.76 2.47 5.05.14 7.4C18.716 16.406 12 21 12 21z" fill="currentColor"/>
                             </svg>
                             {messages.donate}
                         </a>
