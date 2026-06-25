@@ -140,16 +140,6 @@ body{
     position: relative;
     padding-top: 2px;
 }
-.payment-section-kicker--secondary::before{
-    content: '';
-    position: absolute;
-    left: 13px;
-    bottom: calc(100% + 6px);
-    width: 2px;
-    height: 16px;
-    border-radius: 999px;
-    background: rgba(79,128,92,0.22);
-}
 .payment-section-index--secondary{
     background: var(--brand-primary-soft);
     color: var(--brand-primary);
