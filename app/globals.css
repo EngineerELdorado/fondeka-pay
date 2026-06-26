@@ -474,7 +474,7 @@ body{
     .payment-focus-panel{ padding: 12px; border-radius: 18px; }
     .payment-amount-card{ padding: 12px; }
     .payment-methods-heading{ grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
-    .payment-country-chip{ justify-content: center; max-width: 150px; width: auto; padding-left: 10px; padding-right: 10px; }
+    .payment-country-chip{ justify-content: center; max-width: min(210px, 58vw); width: auto; padding-left: 12px; padding-right: 12px; }
     .payment-total-row{
         align-items: flex-start;
         flex-direction: column;
