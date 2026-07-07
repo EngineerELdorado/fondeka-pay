@@ -125,6 +125,7 @@ function normalizeData(d, messages) {
         presets: Array.isArray(d.presets) ? d.presets.map(toNum).filter(n => Number.isFinite(n) && n > 0) : [],
         items: Array.isArray(d.items) ? d.items : [],
         payerFields,
+        youtubeUrl: d.youtubeUrl ?? null,
         metadata: d.metadata ?? {},
         showRecentPaymentsPublicly: d.showRecentPaymentsPublicly ?? true,
         image1: d.image1 ?? null,
@@ -152,6 +153,14 @@ const getYouTubeId = (url) => {
         return null;
     }
 };
+
+const getMetadataYouTubeUrl = (metadata) => (
+    metadata?.youtubeUrl ||
+    metadata?.youbeUrl ||
+    metadata?.YoutubeUrl ||
+    metadata?.youTubeUrl ||
+    null
+);
 
 /* --------------------------- lifecycle evaluation -------------------------- */
 function evaluatePayability(type, lifecycle, messages) {
@@ -226,7 +235,7 @@ export default async function Page({ params }) {
     const currentUrl = `${proto}://${host}/p/${encodeURIComponent(params.code)}`;
 
     // Donation media
-    const ytId  = getYouTubeId(data?.metadata?.youtubeUrl);
+    const ytId  = getYouTubeId(data?.youtubeUrl || getMetadataYouTubeUrl(data?.metadata));
     const cover = data.image1 || null;
     const otherImages = [data.image2, data.image3, data.image4, data.image5].filter(Boolean);
 
