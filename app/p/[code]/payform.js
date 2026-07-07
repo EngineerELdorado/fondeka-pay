@@ -938,13 +938,12 @@ function ReviewModal({ onClose, onConfirm, amount, fees, total, currency, method
                     {account && <SummaryLine label={messages.account} value={account} />}
                 </div>
 
-                <div style={{ display:'flex', gap:10, marginTop:14, flexWrap:'wrap' }}>
-                    <button className="tile" onClick={onClose} style={{ padding:'10px 12px', flex:1, minWidth:120 }}>
+                <div className="review-actions">
+                    <button className="review-action-button review-action-button--secondary" onClick={onClose}>
                         {messages.back}
                     </button>
                     <button
-                        className="btn btn--primary"
-                        style={{ height:48, flex:1, minWidth:160 }}
+                        className="review-action-button review-action-button--primary"
                         onClick={onConfirm}
                         disabled={!canConfirm}
                     >
