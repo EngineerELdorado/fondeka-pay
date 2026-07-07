@@ -6,7 +6,7 @@ import ReadMore from './readmore';
 import ShareButton from "./components/ShareButton";
 import { getPayFormMessages, normalizePayFormLanguage } from './utils/payform-i18n';
 
-export default function LightboxClient({ ytId, cover, otherImages = [], story, images = [], currentUrl, isDonation, title, language = 'en' }) {
+export default function LightboxClient({ ytId, youtubeUrl, cover, otherImages = [], story, images = [], currentUrl, isDonation, title, language = 'en' }) {
     const [open, setOpen] = useState(false);
     const [startIndex, setStartIndex] = useState(0);
     const messages = getPayFormMessages(normalizePayFormLanguage(language));
@@ -27,6 +27,34 @@ export default function LightboxClient({ ytId, cover, otherImages = [], story, i
                             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
                         />
                     </div>
+                </section>
+            )}
+
+            {!ytId && youtubeUrl && (
+                <section className="card card--plain" style={{ background: '#fff' }}>
+                    <a
+                        href={youtubeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="tile"
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 8,
+                            textDecoration: 'none',
+                            color: '#4F805C',
+                            fontWeight: 800,
+                        }}
+                    >
+                        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                            <path
+                                fill="currentColor"
+                                d="M21.58 7.19a2.75 2.75 0 0 0-1.94-1.95C17.93 4.78 12 4.78 12 4.78s-5.93 0-7.64.46a2.75 2.75 0 0 0-1.94 1.95A28.7 28.7 0 0 0 1.96 12c0 1.67.15 3.34.46 4.81a2.75 2.75 0 0 0 1.94 1.95c1.71.46 7.64.46 7.64.46s5.93 0 7.64-.46a2.75 2.75 0 0 0 1.94-1.95c.31-1.47.46-3.14.46-4.81s-.15-3.34-.46-4.81ZM10 15.27V8.73L15.66 12 10 15.27Z"
+                            />
+                        </svg>
+                        {language === 'fr' ? 'Voir sur YouTube' : 'View on YouTube'}
+                    </a>
                 </section>
             )}
 

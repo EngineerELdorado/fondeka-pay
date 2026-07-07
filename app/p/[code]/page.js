@@ -15,7 +15,8 @@ import {
 
 /* -------------------- dynamic metadata (OG/Twitter image) -------------------- */
 export async function generateMetadata({ params }) {
-    const hdr = headers();
+    const resolvedParams = await params;
+    const hdr = await headers();
     const language = detectPayFormLanguageFromHeader(hdr.get('accept-language'));
     const messages = getPayFormMessages(language);
 
@@ -33,7 +34,7 @@ export async function generateMetadata({ params }) {
         }
     }
 
-    const raw = await fetchPublicLink(params.code);
+    const raw = await fetchPublicLink(resolvedParams.code);
     if (!raw) return {};
 
     const title = raw.title || 'Fondeka Pay';
@@ -45,7 +46,7 @@ export async function generateMetadata({ params }) {
     const base  = `${proto}://${host}`;
 
     // Page URL (canonical)
-    const pageUrl = `${base}/p/${encodeURIComponent(params.code)}`;
+    const pageUrl = `${base}/p/${encodeURIComponent(resolvedParams.code)}`;
 
     // Ensure cover is an ABSOLUTE, crawlable URL with proper content-type/size
     const coverRaw = raw.image1 || null;
@@ -142,15 +143,38 @@ const toNum = (v) => {
     return Number.isFinite(n) ? n : null;
 };
 
-const getYouTubeId = (url) => {
+const getYouTubeVideoId = (url) => {
     if (!url) return null;
     try {
         const u = new URL(url);
-        if (u.hostname.includes('youtu.be')) return u.pathname.slice(1);
-        if (u.hostname.includes('youtube.com')) return u.searchParams.get('v') || null;
+        const hostname = u.hostname.replace(/^www\./, '');
+        const parts = u.pathname.split('/').filter(Boolean);
+
+        if (hostname === 'youtu.be') return parts[0] || null;
+        if (!hostname.endsWith('youtube.com')) return null;
+
+        if (u.searchParams.get('v')) return u.searchParams.get('v');
+        if (['embed', 'shorts', 'live'].includes(parts[0])) return parts[1] || null;
+
         return null;
     } catch {
         return null;
+    }
+};
+
+const normalizeYouTubeUrl = (url) => {
+    if (!url || typeof url !== 'string') return null;
+    const trimmed = url.trim();
+    if (!trimmed) return null;
+
+    try {
+        return new URL(trimmed).toString();
+    } catch {
+        try {
+            return new URL(`https://${trimmed}`).toString();
+        } catch {
+            return null;
+        }
     }
 };
 
@@ -187,14 +211,15 @@ function evaluatePayability(type, lifecycle, messages) {
 /* ---------------------------------- page ---------------------------------- */
 
 export default async function Page({ params }) {
-    const hdr = headers();
+    const resolvedParams = await params;
+    const hdr = await headers();
     const language = detectPayFormLanguageFromHeader(hdr.get('accept-language'));
     const messages = getPayFormMessages(language);
-    const raw = await fetchPublicLink(params.code, language);
+    const raw = await fetchPublicLink(resolvedParams.code, language);
     if (raw === null) notFound();
 
     if (raw?.__error) {
-        const retryHref = `/p/${encodeURIComponent(params.code)}`;
+        const retryHref = `/p/${encodeURIComponent(resolvedParams.code)}`;
         return (
             <main className="page">
                 <div className="wrap">
@@ -219,7 +244,7 @@ export default async function Page({ params }) {
     const { canPay, reason } = evaluatePayability(data.type, data.lifecycle, messages);
 
     // country detect (cookie → headers → default)
-    const ck = cookies();
+    const ck = await cookies();
     let countryIso = ck.get('country_iso')?.value?.toUpperCase();
     if (!countryIso) {
         countryIso =
@@ -232,10 +257,11 @@ export default async function Page({ params }) {
     // Current page absolute URL for sharing
     const proto = hdr.get('x-forwarded-proto') || 'https';
     const host  = hdr.get('x-forwarded-host') || hdr.get('host');
-    const currentUrl = `${proto}://${host}/p/${encodeURIComponent(params.code)}`;
+    const currentUrl = `${proto}://${host}/p/${encodeURIComponent(resolvedParams.code)}`;
 
     // Donation media
-    const ytId  = getYouTubeId(data?.youtubeUrl || getMetadataYouTubeUrl(data?.metadata));
+    const youtubeUrl = normalizeYouTubeUrl(data?.youtubeUrl || getMetadataYouTubeUrl(data?.metadata));
+    const ytId  = getYouTubeVideoId(youtubeUrl);
     const cover = data.image1 || null;
     const otherImages = [data.image2, data.image3, data.image4, data.image5].filter(Boolean);
 
@@ -284,6 +310,7 @@ export default async function Page({ params }) {
                 {isDonation && (
                     <LightboxClient
                         ytId={ytId}
+                        youtubeUrl={youtubeUrl}
                         cover={cover}
                         otherImages={otherImages}
                         story={data.description}
@@ -328,7 +355,7 @@ export default async function Page({ params }) {
                 <PayForm
                     data={data}
                     detectedCountry={detectedCountry}
-                    publicCode={params.code}
+                    publicCode={resolvedParams.code}
                     canPay={canPay}
                     disabledReason={reason}
                     totalCollected={data.totalCollected}
@@ -338,7 +365,7 @@ export default async function Page({ params }) {
                 {/* Endless payments list */}
                 {canShowRecentPayments && (
                     <PaymentsFeed
-                        publicCode={params.code}
+                        publicCode={resolvedParams.code}
                         currency={data.currency || 'USD'}
                         requestType={data.type}
                         totalCollected={data.totalCollected}
