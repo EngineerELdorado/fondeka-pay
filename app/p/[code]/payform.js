@@ -496,6 +496,8 @@ export default function PayForm({
                         name={m.name}
                         logoSize={logoSize}
                         disabled={disabled}
+                        showCurrencyBadge={m.showCurrencyBadge}
+                        currency={m.currency}
                     />
                 );
             })}

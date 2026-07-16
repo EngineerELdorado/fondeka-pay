@@ -235,9 +235,24 @@ body{
     box-shadow: 0 12px 26px rgba(15,23,42,0.07), 0 4px 10px rgba(79,128,92,0.08);
 }
 .payment-method-tile{
+    position: relative;
     border-color: rgba(15,23,42,0.08);
     box-shadow: 0 8px 18px rgba(15,23,42,0.07), 0 2px 7px rgba(79,128,92,0.06);
     transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
+}
+.currency-badge{
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    min-width: 34px;
+    padding: 2px 6px;
+    border: 1px solid;
+    border-radius: 999px;
+    box-sizing: border-box;
+    font-size: 9px;
+    line-height: 12px;
+    font-weight: 800;
+    text-align: center;
 }
 .payment-method-tile:hover:not(:disabled){
     transform: translateY(-1px);
