@@ -236,12 +236,12 @@ export default function PayForm({
         const params = new URLSearchParams();
         if (methodId) params.set('paymentMethodId', String(methodId));
         params.set('amount', String(enteredAmount));
-        const url = `${API_BASE}/public/payment-requests/${encodeURIComponent(publicCode)}/quote?${params.toString()}`;
+        const scopedUrl = `${API_BASE}/public/payment-requests/${encodeURIComponent(publicCode)}/quote?${params.toString()}`;
 
         setQuoteLoading(true);
         setQuoteError(null);
         try {
-            const res = await fetch(url, withPublicLanguageHeaders({ cache: 'no-store' }, language));
+            const res = await fetch(scopedUrl, withPublicLanguageHeaders({ cache: 'no-store' }, language));
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const j = await res.json();
             setQuote(j);

@@ -15,7 +15,7 @@ export default function usePaymentMethods(publicCode, countryCode, language) {
             try {
                 if (!publicCode) throw new Error('Public code is missing.');
                 const res = await fetch(
-                    `${API_BASE}/public/payment-requests/${encodeURIComponent(publicCode)}/payment-methods?type=COLLECTION&countryCode=${encodeURIComponent(countryCode)}`,
+                    `${API_BASE}/public/payment-requests/${encodeURIComponent(publicCode)}/payment-methods?countryCode=${encodeURIComponent(countryCode)}`,
                     withPublicLanguageHeaders({ cache: 'no-store' }, language)
                 );
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
