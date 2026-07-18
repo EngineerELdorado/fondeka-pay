@@ -62,7 +62,7 @@ export default function PayForm({
     );
 
     // Hooks now DO NOT auto-select a method; methodId starts as null
-    const {methods, grouped, methodId, setMethodId, error: methodsError} = usePaymentMethods(countryCode, language);
+    const {methods, grouped, methodId, setMethodId, error: methodsError} = usePaymentMethods(publicCode, countryCode, language);
     const selectedMethod = methods.find(m => m.id === methodId) || null;
     const isCrypto = selectedMethod?.type === 'CRYPTO';
     const isMobile = selectedMethod?.type === 'MOBILE_MONEY';
@@ -202,8 +202,11 @@ export default function PayForm({
     const amountReady = () => (isDonation ? amountValid : Number(data.amount) > 0);
 
     const enteredAmount = isDonation ? getDonationAmountNumber() : Number(data.amount) || 0;
-    const totalToPay = quote?.totalToPay ?? enteredAmount;
+    const requestedAmount = quote?.requestedAmount ?? enteredAmount;
+    const totalToPay = quote?.grossAmount ?? quote?.totalToPay ?? enteredAmount;
     const fees = quote?.fees ?? null;
+    const providerAmount = quote?.providerAmount ?? null;
+    const providerCurrency = quote?.providerCurrency ?? null;
 
     const showContact = () => {
         if (disabled) return false;
@@ -229,11 +232,11 @@ export default function PayForm({
 
     /* ---------- quote (fees) ---------- */
     const fetchQuote = useCallback(async () => {
+        if (!publicCode) throw new Error(errorMessages.publicCodeMissing);
         const params = new URLSearchParams();
-        params.set('action', 'PAY_REQUEST');
-        params.set('amount', String(enteredAmount));
         if (methodId) params.set('paymentMethodId', String(methodId));
-        const url = `${API_BASE}/public/fees?${params.toString()}`;
+        params.set('amount', String(enteredAmount));
+        const url = `${API_BASE}/public/payment-requests/${encodeURIComponent(publicCode)}/quote?${params.toString()}`;
 
         setQuoteLoading(true);
         setQuoteError(null);
@@ -250,7 +253,7 @@ export default function PayForm({
         } finally {
             setQuoteLoading(false);
         }
-    }, [enteredAmount, errorMessages, methodId]);
+    }, [enteredAmount, errorMessages, language, methodId, publicCode]);
 
     /* ---------- result handling ---------- */
     const handleSuccess = (res) => {
@@ -761,10 +764,12 @@ export default function PayForm({
                 <ReviewModal
                     onClose={() => setShowReview(false)}
                     onConfirm={onPay}
-                    amount={enteredAmount}
+                    amount={requestedAmount}
                     fees={fees}
                     total={totalToPay}
                     currency={currency}
+                    providerAmount={providerAmount}
+                    providerCurrency={providerCurrency}
                     method={selectedMethod}
                     network={isCrypto ? networks.find(n => n.id === networkId) : null}
                     account={isMobile ? getAccountNumber() : null}
@@ -907,7 +912,9 @@ function CountryPickerModal({open, onClose, countries, query, onQueryChange, sel
     );
 }
 
-function ReviewModal({ onClose, onConfirm, amount, fees, total, currency, method, network, account, canConfirm, messages, language }) {
+function ReviewModal({ onClose, onConfirm, amount, fees, total, currency, providerAmount, providerCurrency, method, network, account, canConfirm, messages, language }) {
+    const showProviderAmount = providerAmount != null && providerCurrency;
+
     return (
         <div
             role="dialog"
@@ -935,6 +942,9 @@ function ReviewModal({ onClose, onConfirm, amount, fees, total, currency, method
                     <SummaryLine label={messages.amount} value={money(amount, currency, language)} />
                     <SummaryLine label={messages.fees} value={fees != null ? money(fees, currency, language) : '—'} />
                     <SummaryLine label={messages.totalToPay} value={money(total || amount, currency, language)} bold />
+                    {showProviderAmount && (
+                        <SummaryLine label={messages.localCharge} value={money(providerAmount, providerCurrency, language)} bold />
+                    )}
                     {method && <SummaryLine label={messages.method} value={method.name} />}
                     {network && <SummaryLine label={messages.network} value={network.displayName || network.name} />}
                     {account && <SummaryLine label={messages.account} value={account} />}

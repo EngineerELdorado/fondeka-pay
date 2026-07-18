@@ -3,7 +3,7 @@ import { GROUP_ORDER } from '../utils/payform-helpers';
 import {API_BASE} from "../../../../lib/api";
 import { getLocalizedBankInstructions, withPublicLanguageHeaders } from '../utils/payform-i18n';
 
-export default function usePaymentMethods(countryCode, language) {
+export default function usePaymentMethods(publicCode, countryCode, language) {
     const [methods, setMethods] = useState([]);
     const [grouped, setGrouped] = useState({});
     const [methodId, setMethodId] = useState(null);     // start with NO selection
@@ -13,8 +13,9 @@ export default function usePaymentMethods(countryCode, language) {
         let mounted = true;
         (async () => {
             try {
+                if (!publicCode) throw new Error('Public code is missing.');
                 const res = await fetch(
-                    `${API_BASE}/public/payment-requests/payment-methods?type=COLLECTION&countryCode=${encodeURIComponent(countryCode)}`,
+                    `${API_BASE}/public/payment-requests/${encodeURIComponent(publicCode)}/payment-methods?type=COLLECTION&countryCode=${encodeURIComponent(countryCode)}`,
                     withPublicLanguageHeaders({ cache: 'no-store' }, language)
                 );
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -41,7 +42,7 @@ export default function usePaymentMethods(countryCode, language) {
             }
         })();
         return () => { mounted = false; };
-    }, [countryCode, language]);
+    }, [publicCode, countryCode, language]);
 
     return { methods, grouped, methodId, setMethodId, error };
 }
