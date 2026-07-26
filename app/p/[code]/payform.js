@@ -451,7 +451,7 @@ export default function PayForm({
             next[firstAvailableGroup] = true;
             return next;
         });
-    }, [firstAvailableGroup, makeCollapsedState]);
+    }, [countryCode, firstAvailableGroup, makeCollapsedState]);
 
     useEffect(() => {
         setDynamicPayerFieldValues(() => (
