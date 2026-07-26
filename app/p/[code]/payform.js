@@ -445,12 +445,9 @@ export default function PayForm({
 
     useEffect(() => {
         if (!firstAvailableGroup) return;
-        setExpanded(prev => {
-            if (GROUP_ORDER.some(t => prev[t])) return prev;
-            const next = makeCollapsedState();
-            next[firstAvailableGroup] = true;
-            return next;
-        });
+        const next = makeCollapsedState();
+        next[firstAvailableGroup] = true;
+        setExpanded(next);
     }, [countryCode, firstAvailableGroup, makeCollapsedState]);
 
     useEffect(() => {
