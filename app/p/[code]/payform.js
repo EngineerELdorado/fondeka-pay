@@ -86,7 +86,6 @@ export default function PayForm({
 
     const [showCountryPicker, setShowCountryPicker] = useState(false);
     const [countryQuery, setCountryQuery] = useState('');
-    const [fullMethodGroups, setFullMethodGroups] = useState({});
 
     // validity + controlled phone
     const isValidDonationAmount = useCallback((value) => {
@@ -442,7 +441,6 @@ export default function PayForm({
         setPhoneDigits('');
         setPhoneValid(false);
         setCountryQuery('');
-        setFullMethodGroups({});
     }, [countryCode, makeCollapsedState, setMethodId, setNetworkId]);
 
     useEffect(() => {
@@ -627,10 +625,6 @@ export default function PayForm({
                     if (!list?.length) return null;
                     const logoSize = 36;
                     const activeGroup = !!list.find(m => m.id === methodId);
-                    const hiddenCount = Math.max(0, list.length - 3);
-                    const selectedMethodIsHidden = hiddenCount > 0 && list.slice(3).some(m => m.id === methodId);
-                    const showFullMethodGroup = fullMethodGroups[t] === true || selectedMethodIsHidden;
-                    const visibleMethods = hiddenCount > 0 && !showFullMethodGroup ? list.slice(0, 3) : list;
 
                     return (
                         <Accordion
@@ -641,21 +635,7 @@ export default function PayForm({
                             onToggle={onToggleAccordion}
                             disabled={disabled}
                         >
-                            {renderGroupTiles(t, visibleMethods, logoSize)}
-                            {hiddenCount > 0 && !showFullMethodGroup && (
-                                <div className="payment-method-view-more-row">
-                                    <button
-                                        type="button"
-                                        className="payment-method-view-more"
-                                        onClick={() => {
-                                            setFullMethodGroups(prev => ({...prev, [t]: true}));
-                                        }}
-                                        disabled={disabled}
-                                    >
-                                        {messages.viewMore} +{hiddenCount}
-                                    </button>
-                                </div>
-                            )}
+                            {renderGroupTiles(t, list, logoSize)}
 
                             {/* Mobile phone field stays mounted only inside MOBILE_MONEY section */}
                                 {t === 'MOBILE_MONEY' && isMobile && (
