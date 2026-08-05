@@ -940,7 +940,12 @@ function ReviewModal({ onClose, onConfirm, amount, fees, total, currency, provid
                     <SummaryLine label={messages.fees} value={fees != null ? money(fees, currency, language) : '—'} />
                     <SummaryLine label={messages.totalToPay} value={money(total || amount, currency, language)} bold />
                     {showProviderAmount && (
-                        <SummaryLine label={messages.localCharge} value={money(providerAmount, providerCurrency, language)} bold />
+                        <SummaryLine
+                            label={messages.localCharge}
+                            value={money(providerAmount, providerCurrency, language)}
+                            bold
+                            highlight
+                        />
                     )}
                     {method && <SummaryLine label={messages.method} value={method.name} />}
                     {network && <SummaryLine label={messages.network} value={network.displayName || network.name} />}
@@ -964,11 +969,13 @@ function ReviewModal({ onClose, onConfirm, amount, fees, total, currency, provid
     );
 }
 
-function SummaryLine({ label, value, bold }) {
+function SummaryLine({ label, value, bold, highlight = false }) {
     return (
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <span className="label">{label}</span>
-            <span style={{ fontWeight: bold ? 800 : 700 }}>{value}</span>
+        <div className={`summary-line${highlight ? ' summary-line--highlight' : ''}`}>
+            <span className={highlight ? 'summary-line-label summary-line-label--highlight' : 'label'}>{label}</span>
+            <span className={highlight ? 'summary-local-charge-badge' : undefined} style={highlight ? undefined : { fontWeight: bold ? 800 : 700 }}>
+                {value}
+            </span>
         </div>
     );
 }
