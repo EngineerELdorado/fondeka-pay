@@ -667,6 +667,33 @@ body{
 @media (max-width:480px){
     .chip{ padding: 10px 14px; font-size: 16px; }
 }
+.payment-preset-row{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    width: 100%;
+    min-width: 0;
+    margin-top: 12px;
+    overflow: hidden;
+}
+.chip.payment-preset-chip{
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    padding: 8px max(6px, calc(12px * var(--preset-label-scale, 1)));
+    font-size: max(11px, calc(var(--font-m) * var(--preset-label-scale, 1)));
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+@media (max-width:480px){
+    .chip.payment-preset-chip{
+        padding: 10px max(6px, calc(14px * var(--preset-label-scale, 1)));
+        font-size: max(11px, calc(16px * var(--preset-label-scale, 1)));
+    }
+}
 html { scroll-behavior: smooth; }
 
 /* Home / hero */

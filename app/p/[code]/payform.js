@@ -522,19 +522,26 @@ export default function PayForm({
                         )}
 
                         {!!(Array.isArray(data.presets) && data.presets.length) && (
-                            <div style={{display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12}}>
-                                {data.presets.map((p, i) => (
-                                    <button
-                                        key={`${p}-${i}`}
-                                        onClick={() => {
-                                            if (amountRef.current) amountRef.current.value = String(p);
-                                            setAmountValid(isValidDonationAmount(p));
-                                        }}
-                                        className="chip"
-                                    >
-                                        {money(p, currency, language)}
-                                    </button>
-                                ))}
+                            <div className="payment-preset-row">
+                                {data.presets.map((p, i) => {
+                                    const label = money(p, currency, language);
+                                    const scale = Math.max(0.72, Math.min(1, 10 / label.length));
+
+                                    return (
+                                        <button
+                                            key={`${p}-${i}`}
+                                            onClick={() => {
+                                                if (amountRef.current) amountRef.current.value = String(p);
+                                                setAmountValid(isValidDonationAmount(p));
+                                            }}
+                                            className="chip payment-preset-chip"
+                                            style={{'--preset-label-scale': scale}}
+                                            title={label}
+                                        >
+                                            {label}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         )}
 
