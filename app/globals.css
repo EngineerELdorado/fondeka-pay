@@ -261,6 +261,43 @@ body{
 .payment-method-tile--active{
     box-shadow: 0 14px 28px rgba(79,128,92,0.16), 0 5px 12px rgba(15,23,42,0.08);
 }
+.fondeka-app-pay-panel{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 2px;
+}
+.fondeka-app-pay-button{
+    min-height: 54px;
+    font-size: 16px;
+}
+.fondeka-app-pay-fallback{
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid rgba(15,23,42,0.08);
+    border-radius: 12px;
+    background: var(--brand-primary-soft-2);
+}
+.fondeka-app-pay-fallback p{
+    margin: 0;
+    color: #334155;
+    font-size: 14px;
+    line-height: 1.35;
+    font-weight: 650;
+}
+.fondeka-app-pay-fallback a{
+    color: var(--brand-primary);
+    font-size: 14px;
+    font-weight: 900;
+    text-decoration: none;
+}
+.fondeka-app-pay-fallback a:focus-visible{
+    outline: 3px solid rgba(79,128,92,.2);
+    outline-offset: 2px;
+    border-radius: 6px;
+}
 
 /* Country picker bottom sheet */
 .country-sheet-backdrop{

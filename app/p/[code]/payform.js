@@ -29,6 +29,21 @@ import MobileMoneyModal from './components/MobileMoneyModal';
 import usePaymentMethods from './hooks/usePaymentMethods';
 import useCryptoNetworks from './hooks/useCryptoNetworks';
 
+const MOBILE_BROWSER_RE = /Android|iPhone|iPad|iPod/i;
+
+function getFondekaPaymentSchemeBase() {
+    const env = String(
+        process.env.NEXT_PUBLIC_FONDEKA_APP_ENV ||
+        process.env.NEXT_PUBLIC_APP_ENV ||
+        process.env.NEXT_PUBLIC_VERCEL_ENV ||
+        ''
+    ).toLowerCase();
+
+    if (['dev', 'development', 'local'].includes(env)) return 'fondeka-dev://payment-request/pay/';
+    if (['preview', 'staging'].includes(env)) return 'fondeka-preview://payment-request/pay/';
+    return 'fondeka://payment-request/pay/';
+}
+
 export default function PayForm({
                                     data = {},
                                     detectedCountry = 'CD',
@@ -83,6 +98,8 @@ export default function PayForm({
     const [quote, setQuote] = useState(null);
     const [quoteLoading, setQuoteLoading] = useState(false);
     const [quoteError, setQuoteError] = useState(null);
+    const [isMobileBrowser, setIsMobileBrowser] = useState(false);
+    const [showAppInstallFallback, setShowAppInstallFallback] = useState(false);
 
     const [showCountryPicker, setShowCountryPicker] = useState(false);
     const [countryQuery, setCountryQuery] = useState('');
@@ -215,6 +232,23 @@ export default function PayForm({
         if (!amountReady()) return false;
         return true;
     };
+
+    const openFondekaPayment = useCallback(() => {
+        if (!publicCode || disabled) return;
+
+        const startedAt = Date.now();
+        const scheme = `${getFondekaPaymentSchemeBase()}${encodeURIComponent(publicCode)}`;
+
+        setShowAppInstallFallback(false);
+        window.location.href = scheme;
+
+        window.setTimeout(() => {
+            const elapsed = Date.now() - startedAt;
+            if (elapsed < 1800 && !document.hidden) {
+                setShowAppInstallFallback(true);
+            }
+        }, 1500);
+    }, [disabled, publicCode]);
 
     /* ---------- token refresh ---------- */
     const refreshCheckoutToken = async () => {
@@ -419,6 +453,9 @@ export default function PayForm({
         setLanguage((prev) => nextLanguage === prev ? prev : nextLanguage);
         if (typeof document !== 'undefined') {
             document.documentElement.lang = nextLanguage;
+        }
+        if (typeof navigator !== 'undefined') {
+            setIsMobileBrowser(MOBILE_BROWSER_RE.test(navigator.userAgent || ''));
         }
     }, []);
 
@@ -740,6 +777,33 @@ export default function PayForm({
                     );
                 })}
                 </div>
+
+                {isMobileBrowser && (
+                    <Accordion
+                        title={messages.fondekaAppPaymentTitle}
+                        typeKey="FONDEKA_APP"
+                        open={!!expanded.FONDEKA_APP}
+                        onToggle={onToggleAccordion}
+                        disabled={disabled}
+                    >
+                        <div className="fondeka-app-pay-panel">
+                            <button
+                                type="button"
+                                className="btn btn--primary fondeka-app-pay-button"
+                                onClick={openFondekaPayment}
+                                disabled={disabled || !publicCode}
+                            >
+                                {messages.payWithFondeka}
+                            </button>
+                            {showAppInstallFallback && (
+                                <div className="fondeka-app-pay-fallback">
+                                    <p>{messages.fondekaAppInstallFallback}</p>
+                                    <a href="/download">{messages.downloadApp}</a>
+                                </div>
+                            )}
+                        </div>
+                    </Accordion>
+                )}
             </section>
 
             {/* Modals */}
