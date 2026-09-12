@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    allowedDevOrigins: ['192.168.178.55'],
     async redirects() {
         return [
             { source: '/:lang(fr|en)', destination: '/', permanent: false },

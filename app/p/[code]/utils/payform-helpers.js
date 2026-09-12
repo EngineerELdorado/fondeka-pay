@@ -28,7 +28,7 @@ export function money(n, curr, locale) {
     const value = Number(n) || 0;
     const c = String(curr || 'USD').toUpperCase();
     if (c === 'USD') {
-        return value.toLocaleString(locale || undefined, { style:'currency', currency:'USD', currencyDisplay:'narrowSymbol', maximumFractionDigits:2 });
+        return value.toLocaleString(locale || undefined, { style:'currency', currency:'USD', currencyDisplay:'code', maximumFractionDigits:2 });
     }
     return value.toLocaleString(locale || undefined, { style:'currency', currency:c, maximumFractionDigits:2 });
 }

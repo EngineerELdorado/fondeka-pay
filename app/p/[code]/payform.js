@@ -182,6 +182,19 @@ export default function PayForm({
         [dynamicPayerFieldValues, payerFields]
     );
     const hasMissingRequiredPayerFields = missingRequiredPayerFieldKeys.length > 0;
+    const donationPresetAmounts = useMemo(() => {
+        const requestCurrency = String(currency || '').trim().toUpperCase();
+        const sourcePresets = requestCurrency === 'USD'
+            ? (Array.isArray(data.presets) ? data.presets : [])
+            : [10000, 50000, 100000];
+        const maxAmount = data.maxAmount != null && Number(data.maxAmount) > 0 ? Number(data.maxAmount) : null;
+
+        return sourcePresets
+            .map((preset) => Number(preset))
+            .filter((preset) => Number.isFinite(preset) && preset > 0)
+            .filter((preset) => !minimumEnabled || minimumAmount <= 0 || preset >= minimumAmount)
+            .filter((preset) => maxAmount == null || preset <= maxAmount);
+    }, [currency, data.maxAmount, data.presets, minimumAmount, minimumEnabled]);
 
     const getDynamicPayerFieldsPayload = useCallback(() => {
         if (!payerFields.length) return undefined;
@@ -558,9 +571,9 @@ export default function PayForm({
                             </p>
                         )}
 
-                        {!!(Array.isArray(data.presets) && data.presets.length) && (
+                        {!!donationPresetAmounts.length && (
                             <div className="payment-preset-row">
-                                {data.presets.map((p, i) => {
+                                {donationPresetAmounts.map((p, i) => {
                                     const label = money(p, currency, language);
                                     const scale = Math.max(0.72, Math.min(1, 10 / label.length));
 
@@ -981,7 +994,9 @@ function CountryPickerModal({open, onClose, countries, query, onQueryChange, sel
 }
 
 function ReviewModal({ onClose, onConfirm, amount, fees, total, currency, providerAmount, providerCurrency, method, network, account, canConfirm, messages, language }) {
-    const showProviderAmount = providerAmount != null && providerCurrency;
+    const requestCurrency = String(currency || '').trim().toUpperCase();
+    const localCurrency = String(providerCurrency || '').trim().toUpperCase();
+    const showProviderAmount = providerAmount != null && localCurrency && localCurrency !== requestCurrency;
 
     return (
         <div
