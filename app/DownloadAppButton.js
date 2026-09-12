@@ -47,7 +47,13 @@ function AppleIcon() {
     );
 }
 
-export default function DownloadAppButton({ label = 'Download app', variant = 'default' }) {
+export default function DownloadAppButton({
+    label = 'Download app',
+    variant = 'default',
+    children = null,
+    ariaLabel,
+    labels = {},
+}) {
     const [platform, setPlatform] = useState('other');
     const [open, setOpen] = useState(false);
     const menuRef = useRef(null);
@@ -55,7 +61,9 @@ export default function DownloadAppButton({ label = 'Download app', variant = 'd
     const qrSize = '180x180';
     const qrPlay = `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}&data=${encodeURIComponent(playUrl)}&margin=0`;
     const qrApple = `https://api.qrserver.com/v1/create-qr-code/?size=${qrSize}&data=${encodeURIComponent(appStoreUrl)}&margin=0`;
-    const isHero = variant === 'hero';
+    const isImage = variant === 'image';
+    const triggerClassName = isImage ? 'download-image-trigger' : 'btn btn--primary hero-btn';
+    const triggerContent = children || <span>{label}</span>;
 
     useEffect(() => {
         setPlatform(getDevicePlatform());
@@ -76,12 +84,18 @@ export default function DownloadAppButton({ label = 'Download app', variant = 'd
         const isAndroid = platform === 'android';
         const href = isAndroid ? playUrl : appStoreUrl;
         const Icon = isAndroid ? PlayIcon : AppleIcon;
-        const mobileLabel = isAndroid ? 'Download for Android' : 'Download for iPhone';
+        const mobileLabel = isAndroid
+            ? (labels.mobileAndroid || 'Download for Android')
+            : (labels.mobileIos || 'Download for iPhone');
 
         return (
-            <a className={isHero ? 'btn btn--primary hero-btn' : 'btn btn--primary hero-btn'} href={href} target="_blank" rel="noopener noreferrer">
-                <Icon />
-                <span>{mobileLabel}</span>
+            <a className={triggerClassName} href={href} target="_blank" rel="noopener noreferrer" aria-label={ariaLabel || mobileLabel}>
+                {children ? triggerContent : (
+                    <>
+                        <Icon />
+                        <span>{mobileLabel}</span>
+                    </>
+                )}
             </a>
         );
     }
@@ -89,28 +103,29 @@ export default function DownloadAppButton({ label = 'Download app', variant = 'd
     return (
         <div className="download-menu" ref={menuRef}>
             <button
-                className={isHero ? 'btn btn--primary hero-btn' : 'btn btn--primary hero-btn'}
+                className={triggerClassName}
                 type="button"
                 aria-haspopup="dialog"
                 aria-expanded={open}
+                aria-label={ariaLabel || label}
                 onClick={(event) => {
                     event.stopPropagation();
                     setOpen((value) => !value);
                 }}
             >
-                <span>{label}</span>
+                {triggerContent}
             </button>
 
             {open && (
                 <div className="download-popover" role="dialog" aria-label="Download the Fondeka app">
                     <div className="download-popover__intro">
-                        <strong>Scan and install Fondeka</strong>
-                        <span>Use the app for payment links, invoices, campaigns, cards, bills, crypto, and more.</span>
+                        <strong>{labels.popoverTitle || 'Scan and install Fondeka'}</strong>
+                        <span>{labels.popoverBody || 'Use the app for payment links, invoices, campaigns, cards, bills, crypto, and more.'}</span>
                     </div>
-                    <StoreQr href={playUrl} src={qrPlay} label="Google Play" icon={<PlayIcon />} />
-                    <StoreQr href={appStoreUrl} src={qrApple} label="App Store" icon={<AppleIcon />} />
+                    <StoreQr href={playUrl} src={qrPlay} label="Google Play" icon={<PlayIcon />} qrAlt={labels.qrAlt} />
+                    <StoreQr href={appStoreUrl} src={qrApple} label="App Store" icon={<AppleIcon />} qrAlt={labels.qrAlt} />
                     <a className="download-popover__store-link" href={playUrl} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>
-                        Open store page
+                        {labels.openStore || 'Open store page'}
                     </a>
                 </div>
             )}
@@ -118,10 +133,10 @@ export default function DownloadAppButton({ label = 'Download app', variant = 'd
     );
 }
 
-function StoreQr({ href, src, label, icon }) {
+function StoreQr({ href, src, label, icon, qrAlt }) {
     return (
         <a className="download-qr-link" href={href} target="_blank" rel="noopener noreferrer">
-            <img src={src} alt={`QR code for ${label}`} loading="lazy" />
+            <img src={src} alt={`${qrAlt || 'QR code for'} ${label}`} loading="lazy" />
             <span>{icon}{label}</span>
         </a>
     );
