@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "d2f9ec07-bc1c-4895-83e6-0f3679a37d92"
+      }
+    },
+    "android": {
+      "package": "com.dkalenga.fondekapay"
+    }
+  }
+}

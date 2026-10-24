@@ -4,7 +4,6 @@ import PaymentsFeed from './payments';
 import LightboxClient from './lightbox-client';
 import { notFound } from 'next/navigation';
 import { cookies, headers } from 'next/headers';
-import ShareButton from "./components/ShareButton";
 import React from "react";
 import {
     detectPayFormLanguageFromHeader,
@@ -275,8 +274,10 @@ export default async function Page({ params }) {
                 {/* Brand header */}
                 <HeaderLogo />
 
+                <div className="payment-request-layout">
+                <div className="payment-request-content">
                 {/* Title / creator (no buttons here now) */}
-                <header style={{ marginBottom: 6 }}>
+                <header className="payment-request-heading">
                     <h1 className="h1">
                         {data.title || (isInvoice ? messages.invoice : isDonation ? messages.collection : messages.payment)}
                     </h1>
@@ -348,19 +349,22 @@ export default async function Page({ params }) {
                     </section>
                 )}
 
-                {/* Anchor for "Faire un don" smooth scroll */}
-                <div id="pay-form" style={{ scrollMarginTop: 80 }} />
+                </div>
 
-                {/* Pay form (disabled when not payable) */}
-                <PayForm
-                    data={data}
-                    detectedCountry={detectedCountry}
-                    publicCode={resolvedParams.code}
-                    canPay={canPay}
-                    disabledReason={reason}
-                    totalCollected={data.totalCollected}
-                    initialLanguage={language}
-                />
+                {/* Anchor for "Faire un don" smooth scroll */}
+                <aside className="payment-request-checkout" id="pay-form">
+                    {/* Pay form (disabled when not payable) */}
+                    <PayForm
+                        data={data}
+                        detectedCountry={detectedCountry}
+                        publicCode={resolvedParams.code}
+                        canPay={canPay}
+                        disabledReason={reason}
+                        totalCollected={data.totalCollected}
+                        initialLanguage={language}
+                    />
+                </aside>
+                </div>
 
                 {/* Endless payments list */}
                 {canShowRecentPayments && (
@@ -372,30 +376,6 @@ export default async function Page({ params }) {
                         showRecentPaymentsPublicly={data.showRecentPaymentsPublicly}
                         initialLanguage={language}
                     />
-                )}
-                {isDonation && (
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 12, marginBottom: 8 }}>
-                        <ShareButton url={currentUrl} title={data?.title} cover={cover} language={language} />
-                        <a
-                            className="chip donation-action-button donation-action-button--donate"
-                            href="#pay-form"
-                            aria-label={messages.goToPaymentForm}
-                            style={{
-                                textDecoration: 'none',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 8,
-                                fontWeight: 800,
-                                color: '#fff',
-                            }}
-                        >
-                            {/* Heart/Donate icon */}
-                            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="M12 21s-6.716-4.594-9.09-7.09C.579 11.56.79 8.27 3.05 6.51a5 5 0 0 1 6.58.57L12 8.58l2.37-1.5a5 5 0 0 1 6.58-.57c2.26 1.76 2.47 5.05.14 7.4C18.716 16.406 12 21 12 21z" fill="currentColor"/>
-                            </svg>
-                            {messages.donate}
-                        </a>
-                    </div>
                 )}
             </div>
         </main>

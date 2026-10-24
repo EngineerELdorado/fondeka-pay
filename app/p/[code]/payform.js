@@ -289,7 +289,16 @@ export default function PayForm({
         setQuoteError(null);
         try {
             const res = await fetch(scopedUrl, withPublicLanguageHeaders({ cache: 'no-store' }, language));
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            if (!res.ok) {
+                let message = '';
+                try {
+                    const payload = await res.json();
+                    message = payload?.message || payload?.error || '';
+                } catch {
+                    // Fall through to the localized quote error below.
+                }
+                throw new Error(message || errorMessages.feesUnavailable || `HTTP ${res.status}`);
+            }
             const j = await res.json();
             setQuote(j);
             return j;
@@ -534,6 +543,7 @@ export default function PayForm({
                         key={m.id}
                         active={methodId === m.id}
                         onClick={() => {
+                            setQuoteError(null);
                             setMethodId(m.id);
                             // Open only this group
                             const next = {};
@@ -581,6 +591,7 @@ export default function PayForm({
                                         <button
                                             key={`${p}-${i}`}
                                             onClick={() => {
+                                                setQuoteError(null);
                                                 if (amountRef.current) amountRef.current.value = String(p);
                                                 setAmountValid(isValidDonationAmount(p));
                                             }}
@@ -604,6 +615,7 @@ export default function PayForm({
                                 placeholder="0"
                                 defaultValue={minimumEnabled && minimumAmount > 0 ? String(minimumAmount) : ''}
                                 onInput={(e) => {
+                                    setQuoteError(null);
                                     const n = Number(String(e.currentTarget.value || '').replace(',', '.'));
                                     setAmountValid(isValidDonationAmount(n));
                                 }}
@@ -642,6 +654,7 @@ export default function PayForm({
                         className="chip payment-country-chip"
                         onClick={() => {
                             if (disabled) return;
+                            setQuoteError(null);
                             setCountryQuery('');
                             setShowCountryPicker(true);
                         }}
@@ -784,6 +797,12 @@ export default function PayForm({
                                     >
                                         {quoteLoading ? messages.calculating : busy ? messages.sending : messages.reviewAndPay}
                                     </button>
+                                    {quoteError && (
+                                        <div className="payment-inline-error" role="alert">
+                                            <span aria-hidden="true">!</span>
+                                            <p>{quoteError}</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </Accordion>

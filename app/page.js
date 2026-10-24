@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import DownloadAppButton from './DownloadAppButton';
 import FundraisingDownloadPreview from './FundraisingDownloadPreview';
 
@@ -221,8 +221,8 @@ export default function Home() {
                     <h2>{t.featuresTitle}</h2>
                 </div>
                 <div className="use-case-grid">
-                    {t.useCases.map((item) => (
-                        <FeatureCard key={item.eyebrow} {...item} />
+                    {t.useCases.map((item, index) => (
+                        <FeatureCard key={item.eyebrow} index={index} {...item} />
                     ))}
                 </div>
             </section>
@@ -273,9 +273,26 @@ function HeaderLogo({ compact = false, brand }) {
     );
 }
 
-function FeatureCard({ eyebrow, title, desc, meta }) {
+function FeatureIcon({ index }) {
+    const paths = [
+        <path key="heart" d="M12 20.5s-7-4.35-7-10.05A4.45 4.45 0 0 1 12 6.8a4.45 4.45 0 0 1 7 3.65c0 5.7-7 10.05-7 10.05Z" />,
+        <React.Fragment key="invoice"><path d="M7 3.5h8l3 3v14H7z" /><path d="M15 3.5v4h3M10 12h5M10 16h5" /></React.Fragment>,
+        <React.Fragment key="bolt"><path d="M13.5 2.8 6.8 13h5l-1.3 8.2L17.2 11h-5z" /></React.Fragment>,
+    ];
+
+    return (
+        <span className={`feature-card__icon feature-card__icon--${index + 1}`} aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                {paths[index] || paths[0]}
+            </svg>
+        </span>
+    );
+}
+
+function FeatureCard({ eyebrow, title, desc, meta, index }) {
     return (
         <article className="feature-card">
+            <FeatureIcon index={index} />
             <div className="feature-card__eyebrow">{eyebrow}</div>
             <h3>{title}</h3>
             <p>{desc}</p>
